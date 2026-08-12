@@ -160,6 +160,14 @@ def _prepare_socket(path: str, group_name: str, mode: int) -> None:
     os.chmod(path, mode)
 
 
+def _prepare_runtime_dir(config: Config) -> None:
+    path = Path(config.runtime_dir)
+    path.mkdir(mode=0o755, parents=True, exist_ok=True)
+    if config.require_root_daemon:
+        os.chown(path, 0, 0)
+    os.chmod(path, 0o755)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="hostctl approval broker daemon")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
@@ -178,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    Path(config.runtime_dir).mkdir(mode=0o755, parents=True, exist_ok=True)
+    _prepare_runtime_dir(config)
     for path in (config.request_socket, config.admin_socket):
         try:
             os.unlink(path)
