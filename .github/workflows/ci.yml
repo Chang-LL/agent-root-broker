@@ -21,6 +21,8 @@ jobs:
         run: test -z "$(gofmt -l cmd internal)"
       - name: Unit and race tests
         run: go test -race ./...
+      - name: Root POSIX ACL integration
+        run: sudo env PATH="$PATH" go test ./internal/homeaccess -run '^TestPlatform'
       - name: Vet
         run: go vet ./...
       - name: Linux socket integration

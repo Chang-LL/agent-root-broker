@@ -21,6 +21,7 @@ import (
 	"hostctl/internal/broker"
 	"hostctl/internal/config"
 	"hostctl/internal/executor"
+	"hostctl/internal/homeaccess"
 	"hostctl/internal/proc"
 )
 
@@ -36,6 +37,7 @@ type requestEnvelope struct {
 	Decision       string         `json:"decision"`
 	Scope          string         `json:"scope"`
 	LeaseID        string         `json:"leaseId"`
+	Action         string         `json:"action"`
 }
 
 type errorEnvelope struct {
@@ -57,10 +59,16 @@ type leasesEnvelope struct {
 	Leases []broker.LeaseView `json:"leases"`
 }
 
+type homeAccessEnvelope struct {
+	OK bool `json:"ok"`
+	homeaccess.Result
+}
+
 type listener struct {
 	plane    string
 	listener *net.UnixListener
 	broker   *broker.Broker
+	home     *homeaccess.Manager
 	cfg      config.Config
 }
 
@@ -84,7 +92,7 @@ func Run(cfg config.Config) error {
 
 	state := broker.New(cfg)
 	requestServer := &listener{plane: "request", listener: requestListener, broker: state, cfg: cfg}
-	adminServer := &listener{plane: "admin", listener: adminListener, broker: state, cfg: cfg}
+	adminServer := &listener{plane: "admin", listener: adminListener, broker: state, home: homeaccess.New(), cfg: cfg}
 	errCh := make(chan error, 2)
 	go func() { errCh <- requestServer.serve() }()
 	go func() { errCh <- adminServer.serve() }()
@@ -276,9 +284,47 @@ func (s *listener) handleAdmin(connection *net.UnixConn, request requestEnvelope
 			return
 		}
 		writeJSON(connection, okEnvelope{OK: true})
+	case "home_access":
+		home, agentUser, err := s.homeAccessTarget(uid)
+		if err != nil {
+			writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "home_access_unavailable", Message: err.Error()}})
+			return
+		}
+		result, err := s.home.Manage(request.Action, home, agentUser)
+		if err != nil {
+			writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "home_access_failed", Message: err.Error()}})
+			return
+		}
+		log.Printf("hostctl.audit {\"event\":\"home-access\",\"action\":%q,\"approver_uid\":%d,\"agent_user\":%q,\"state\":%q}", request.Action, uid, agentUser, result.State)
+		writeJSON(connection, homeAccessEnvelope{OK: true, Result: result})
 	default:
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "invalid_operation", Message: "unknown admin-plane operation"}})
 	}
+}
+
+func (s *listener) homeAccessTarget(uid uint32) (string, string, error) {
+	if uid == 0 {
+		return "", "", fmt.Errorf("root cannot use approver home access")
+	}
+	if len(s.cfg.AgentUsers) != 1 {
+		return "", "", fmt.Errorf("home access requires exactly one configured agent user")
+	}
+	approver, err := user.LookupId(strconv.FormatUint(uint64(uid), 10))
+	if err != nil {
+		return "", "", fmt.Errorf("look up approver: %w", err)
+	}
+	home, err := filepath.EvalSymlinks(approver.HomeDir)
+	if err != nil || !filepath.IsAbs(home) || filepath.Clean(home) == "/" {
+		return "", "", fmt.Errorf("approver must have a valid home directory other than /")
+	}
+	agent, err := user.Lookup(s.cfg.AgentUsers[0])
+	if err != nil {
+		return "", "", fmt.Errorf("look up agent user: %w", err)
+	}
+	if agent.Uid == "0" || agent.Uid == approver.Uid {
+		return "", "", fmt.Errorf("agent must be a separate non-root user")
+	}
+	return filepath.Clean(home), agent.Username, nil
 }
 
 func defaultScope(scope string) string {

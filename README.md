@@ -54,6 +54,9 @@ All state is memory-only, so restarting `hostctld` revokes every approval.
 - root access for installation
 - a human account that is allowed to approve host commands
 
+The optional full-home access mode additionally requires a local filesystem with Linux POSIX ACL
+and extended-attribute support.
+
 The release binary is statically linked. The target host does not need Go, Python, or third-party
 packages.
 
@@ -88,6 +91,48 @@ It does not preserve API keys or the rest of the caller environment.
 
 The agent account has separate Grok state. On the first launch, authenticate it normally; do not
 copy another user's login tokens into its home.
+
+### Optional access to the approver's home
+
+By default, `grok-agent` cannot read or write the approver's home. If convenience is more important
+than data isolation on a personal host, the approver can enable persistent read/write access at any
+time after installation:
+
+```sh
+hostctl-admin home-access status
+hostctl-admin home-access grant
+hostctl-admin home-access revoke
+```
+
+The grant persists across reboots and does not require reinstalling hostctl. Direct admin calls
+require the configured approver identity; the isolated agent account cannot call them by itself. As
+a first-install convenience, `--allow-approver-home-rw` performs the same grant while running
+`install.sh`. After a grant, however, home write access may give the agent ways to impersonate that
+approver, as described below.
+
+This keeps Grok under the separate unprivileged account and does not grant sudo or membership in the
+approver's groups. The static hostctl daemon manages Linux POSIX ACLs directly through safely opened
+file descriptors; no separate ACL package is required. It does not follow symbolic links or cross
+filesystem boundaries, and it adds default ACLs so newly created content remains available to Grok.
+Running `grok-safe` from the approver's home or one of its subdirectories then allows normal file
+editing there.
+
+Files explicitly created or later changed with a restrictive mode such as `0600` can mask inherited
+ACL rights; run `grant` again to reconcile existing files. `status` reports `enabled` only after a
+complete successful grant, `partial` for incomplete/top-level ACL state, and `disabled` otherwise.
+
+This option deliberately lets Grok read sensitive files in that home, including SSH keys, shell
+configuration, browser/application state, and credentials. It also lets Grok modify or delete the
+approver's files. Root operations still require `hostctl`, but confidentiality and integrity of the
+approver's home are no longer isolation boundaries.
+
+More importantly, write access to files such as `.ssh/authorized_keys`, shell startup files, user
+services, and executable search paths may let the agent impersonate the approver. In full-home mode,
+human-only approval should be treated as a guard against mistakes, not a strong security boundary.
+Use a dedicated shared directory instead when that boundary matters.
+
+Revocation removes the named `grok-agent` access/default ACL entries throughout the home. It cannot
+distinguish an identically named ACL entry that existed before hostctl.
 
 ## Use
 

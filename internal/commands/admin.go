@@ -22,6 +22,13 @@ type leasesResponse struct {
 	Leases []broker.LeaseView `json:"leases"`
 }
 
+type homeAccessResponse struct {
+	baseResponse
+	State     string `json:"state"`
+	Home      string `json:"home"`
+	AgentUser string `json:"agentUser"`
+}
+
 func Admin(args []string) int {
 	socketPath := stringEnv("HOSTCTL_ADMIN_SOCKET", defaultAdminSocket)
 	asJSON := false
@@ -37,7 +44,7 @@ func Admin(args []string) int {
 		break
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprintln(os.Stdout, "Usage: hostctl-admin [--json] pending|leases\n       hostctl-admin approve REQUEST_ID [--scope command|message|session]\n       hostctl-admin deny REQUEST_ID\n       hostctl-admin revoke LEASE_ID\n       hostctl-admin watch [--interval SECONDS]")
+		fmt.Fprintln(os.Stdout, "Usage: hostctl-admin [--json] pending|leases\n       hostctl-admin approve REQUEST_ID [--scope command|message|session]\n       hostctl-admin deny REQUEST_ID\n       hostctl-admin revoke LEASE_ID\n       hostctl-admin home-access status|grant|revoke\n       hostctl-admin watch [--interval SECONDS]")
 		return 0
 	}
 	switch args[0] {
@@ -99,6 +106,34 @@ func Admin(args []string) int {
 			return adminUsageError(asJSON, "revoke requires LEASE_ID")
 		}
 		return adminMutation(socketPath, asJSON, map[string]any{"op": "revoke", "leaseId": args[1]})
+	case "home-access":
+		if len(args) != 2 || (args[1] != "status" && args[1] != "grant" && args[1] != "revoke") {
+			return adminUsageError(asJSON, "home-access requires status, grant, or revoke")
+		}
+		if args[1] == "grant" && !asJSON {
+			fmt.Fprintln(os.Stderr, "Warning: granting full-home access includes SSH keys, application credentials, startup files, and personal files.")
+			fmt.Fprintln(os.Stderr, "The agent may be able to impersonate the approver; human-only approval will no longer be a strong isolation boundary.")
+		}
+		var response homeAccessResponse
+		if err := client.Call(socketPath, map[string]any{"op": "home_access", "action": args[1]}, &response); err != nil {
+			printClientError("hostctl-admin", asJSON, err)
+			return 1
+		}
+		if asJSON {
+			printJSON(response)
+		} else if !response.OK && response.Error != nil {
+			fmt.Fprintf(os.Stderr, "hostctl-admin: %s\n", response.Error.Message)
+		} else {
+			switch args[1] {
+			case "grant":
+				fmt.Fprintf(os.Stdout, "Full-home access enabled: %s can read and write %s.\n", response.AgentUser, response.Home)
+			case "revoke":
+				fmt.Fprintf(os.Stdout, "Full-home access disabled: removed %s ACLs from %s.\n", response.AgentUser, response.Home)
+			default:
+				fmt.Fprintf(os.Stdout, "Full-home access: %s  agent=%s  home=%s\n", response.State, response.AgentUser, response.Home)
+			}
+		}
+		return responseExit(response.baseResponse, asJSON)
 	case "watch":
 		interval := time.Second
 		if len(args) == 3 && args[1] == "--interval" {

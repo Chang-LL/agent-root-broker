@@ -7,9 +7,10 @@ APPROVER_USER=
 GROK_BIN=
 HOSTCTL_BIN=
 TMP_DIR=
+ALLOW_APPROVER_HOME_RW=0
 
 usage() {
-  echo "Usage: sudo ./install.sh --approver-user USER --grok-bin PATH [--agent-user USER] [--hostctl-bin PATH]" >&2
+  echo "Usage: sudo ./install.sh --approver-user USER --grok-bin PATH [--agent-user USER] [--hostctl-bin PATH] [--allow-approver-home-rw]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
@@ -34,6 +35,10 @@ while [ "$#" -gt 0 ]; do
       HOSTCTL_BIN=$2
       shift 2
       ;;
+    --allow-approver-home-rw)
+      ALLOW_APPROVER_HOME_RW=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -55,6 +60,7 @@ valid_user() {
 valid_user "$AGENT_USER" || { echo "invalid agent user name" >&2; exit 2; }
 valid_user "$APPROVER_USER" || { echo "invalid approver user name" >&2; exit 2; }
 /usr/bin/getent passwd "$APPROVER_USER" >/dev/null || { echo "approver user does not exist" >&2; exit 2; }
+[ "$(/usr/bin/id -u "$APPROVER_USER")" -ne 0 ] || { echo "approver user must not be root" >&2; exit 2; }
 [ -f "$GROK_BIN" ] && [ -x "$GROK_BIN" ] || { echo "Grok binary is not an executable file" >&2; exit 2; }
 GROK_BIN=$(/usr/bin/readlink -f -- "$GROK_BIN")
 
@@ -91,6 +97,10 @@ if ! /usr/bin/getent passwd "$AGENT_USER" >/dev/null; then
   /usr/sbin/useradd --create-home --shell /usr/sbin/nologin --user-group "$AGENT_USER"
 fi
 [ "$(/usr/bin/id -u "$AGENT_USER")" -ne 0 ] || { echo "agent user must not be root" >&2; exit 2; }
+[ "$(/usr/bin/id -u "$AGENT_USER")" -ne "$(/usr/bin/id -u "$APPROVER_USER")" ] || {
+  echo "agent user must be different from approver user" >&2
+  exit 2
+}
 /usr/sbin/usermod -a -G hostctl-agent "$AGENT_USER"
 /usr/sbin/usermod -a -G hostctl-approver "$APPROVER_USER"
 
@@ -150,7 +160,17 @@ fi
 /usr/bin/systemctl enable hostctld.service
 /usr/bin/systemctl restart hostctld.service
 
+if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
+  echo "WARNING: granting $AGENT_USER read/write access to the complete home of $APPROVER_USER." >&2
+  echo "WARNING: this includes SSH keys, application credentials, configuration, and personal files." >&2
+  echo "WARNING: the agent may be able to impersonate $APPROVER_USER; approval is no longer a strong isolation boundary." >&2
+  /usr/bin/sudo -u "$APPROVER_USER" -H -- /usr/local/bin/hostctl-admin home-access grant
+fi
+
 echo "hostctl installed: $(/usr/local/bin/hostctl version)"
 echo "Open a second terminal and run: hostctl-admin watch"
 echo "Launch the isolated Grok account with: grok-safe"
 echo "The Grok account may require its own one-time login. Do not copy another user's auth files."
+if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
+  echo "Home access enabled for $AGENT_USER. Revoke it with: hostctl-admin home-access revoke"
+fi

@@ -44,3 +44,30 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 		t.Fatal("installer still depends on the Python implementation")
 	}
 }
+
+func TestApproverHomeAccessIsExplicitAndACLBased(t *testing.T) {
+	installer := projectFile(t, "install.sh")
+	admin := projectFile(t, "internal", "commands", "admin.go")
+	for _, wanted := range []string{
+		"--allow-approver-home-rw",
+		"hostctl-admin home-access grant",
+		"agent user must be different from approver user",
+	} {
+		if !strings.Contains(installer, wanted) {
+			t.Fatalf("installer home-access mode is missing %q", wanted)
+		}
+	}
+	for _, wanted := range []string{"home-access", "status", "grant", "revoke"} {
+		if !strings.Contains(admin, wanted) {
+			t.Fatalf("admin CLI home-access mode is missing %q", wanted)
+		}
+	}
+	for _, forbidden := range []string{
+		"chmod -R g+",
+		"chown -R \"$APPROVER_USER\"",
+	} {
+		if strings.Contains(installer, forbidden) {
+			t.Fatalf("installer mutates broad Unix ownership/mode in home-access mode: %s", forbidden)
+		}
+	}
+}
