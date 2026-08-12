@@ -50,15 +50,18 @@ All state is memory-only, so restarting `hostctld` revokes every approval.
 ## Requirements
 
 - Linux with systemd and `SO_PEERCRED`
-- Python 3.11 or newer (standard library only)
 - Grok Build with hook support
 - root access for installation
 - a human account that is allowed to approve host commands
 
+The release binary is statically linked. The target host does not need Go, Python, or third-party
+packages.
+
 ## Install
 
-Review `install.sh` before running it. Pass the real human account and the existing Grok executable
-explicitly:
+Download the archive for `linux_amd64` or `linux_arm64` from GitHub Releases, verify it against
+`checksums.txt`, extract it, and review `install.sh`. Then pass the real human account and existing
+Grok executable explicitly:
 
 ```sh
 sudo ./install.sh \
@@ -69,7 +72,7 @@ sudo ./install.sh \
 The installer:
 
 - creates locked-down `grok-agent`, `hostctl-agent`, and `hostctl-approver` identities/groups;
-- installs the Python broker and root-owned wrappers;
+- installs one statically linked Go binary and root-owned multicall links;
 - copies the supplied Grok binary to a root-owned location;
 - installs root-managed Grok hooks, rules, and the `hostctl-admin` skill;
 - grants approvers passwordless permission only to enter the unprivileged Grok account through a
@@ -123,6 +126,26 @@ hostctl-admin revoke LEASE_ID
 `--json` emits stable JSON from `hostctl`, `pending`, `leases`, approval, denial, and revocation
 commands.
 
+To verify a binary and local installation without submitting a command:
+
+```sh
+hostctl --json doctor
+```
+
+### JSON contract
+
+Success from `hostctl sudo --json -- ...` includes `ok`, `requestId` (null when a lease was reused),
+`approvalScope`, `commandHash`, `exitCode`, `stdout`, `stderr`, timeout/duration fields, and output
+truncation flags. Broker failures use this envelope:
+
+```json
+{"ok":false,"error":{"code":"denied","message":"request 0123456789abcdef was denied"}}
+```
+
+Reviewer collection commands return `{"ok":true,"pending":[...]}` or
+`{"ok":true,"leases":[...]}`. Mutations return `{"ok":true}`. JSON errors never include proxy
+values, credentials, or Grok authentication data.
+
 ## Configuration
 
 The installed configuration is `/etc/hostctl/config.json`. Useful controls include:
@@ -150,17 +173,20 @@ The executable path and command hash are logged.
 
 ## Development
 
-No third-party runtime or test dependency is required:
+Go 1.23 or newer is required to build from source. The project has no third-party Go modules:
 
 ```sh
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-python3 -m compileall -q src
-# Linux only:
-PYTHONPATH=src python3 tests/integration_linux.py
+make test
+make test-race
+make vet
+make snapshot VERSION=dev
+# Linux only; exercises SO_PEERCRED and real Unix sockets:
+make integration
 ```
 
 The daemon is Linux-only because it treats kernel-supplied peer PID/UID/GID as part of its security
-model. Most pure logic tests run on macOS as well.
+model. Pure logic tests and Linux cross-compilation run on macOS. Tagged releases build static
+`linux-amd64` and `linux-arm64` archives in GitHub Actions and publish SHA-256 checksums.
 
 ## Non-goals and limits
 

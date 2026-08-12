@@ -1,0 +1,21 @@
+{
+  "runtime_dir": "@RUNTIME@",
+  "request_socket": "@RUNTIME@/request.sock",
+  "admin_socket": "@RUNTIME@/admin.sock",
+  "request_group": "@GROUP@",
+  "admin_group": "@GROUP@",
+  "agent_users": ["@USER@"],
+  "approver_users": ["@USER@"],
+  "agent_executables": ["@SHELL@"],
+  "allowed_cwd_roots": ["/"],
+  "clean_path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "default_timeout_seconds": 30,
+  "max_timeout_seconds": 60,
+  "max_output_bytes": 1048576,
+  "request_ttl_seconds": 5,
+  "message_lease_ttl_seconds": 30,
+  "session_lease_ttl_seconds": 60,
+  "require_root_daemon": false,
+  "require_root_owned_executable": true,
+  "log_argv": false
+}

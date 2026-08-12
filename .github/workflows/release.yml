@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: false
+      - name: Test
+        run: go test ./...
+      - name: Build archives
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          mkdir -p release
+          for arch in amd64 arm64; do
+            stage="release/hostctl_${VERSION}_linux_${arch}"
+            mkdir -p "$stage/packaging/bin" "$stage/packaging/config" "$stage/packaging/systemd"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
+            cp install.sh LICENSE README.md SECURITY.md "$stage/"
+            cp -R grok "$stage/"
+            cp packaging/bin/grok-agent-launch packaging/bin/grok-safe.in "$stage/packaging/bin/"
+            cp packaging/config/config.json.in "$stage/packaging/config/"
+            cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"
+            tar -C release -czf "release/hostctl_${VERSION}_linux_${arch}.tar.gz" "hostctl_${VERSION}_linux_${arch}"
+            rm -rf -- "$stage"
+          done
+          cd release
+          sha256sum ./*.tar.gz > checksums.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/checksums.txt --generate-notes --verify-tag

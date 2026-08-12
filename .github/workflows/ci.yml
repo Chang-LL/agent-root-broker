@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: false
+      - name: Check formatting
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Unit and race tests
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Linux socket integration
+        run: ./tests/integration_linux.sh
+      - name: Cross-compile releases
+        run: make snapshot VERSION=ci

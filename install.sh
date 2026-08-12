@@ -5,9 +5,11 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 AGENT_USER=grok-agent
 APPROVER_USER=
 GROK_BIN=
+HOSTCTL_BIN=
+TMP_DIR=
 
 usage() {
-  echo "Usage: sudo ./install.sh --approver-user USER --grok-bin PATH [--agent-user USER]" >&2
+  echo "Usage: sudo ./install.sh --approver-user USER --grok-bin PATH [--agent-user USER] [--hostctl-bin PATH]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
@@ -25,6 +27,11 @@ while [ "$#" -gt 0 ]; do
     --grok-bin)
       [ "$#" -ge 2 ] || { usage; exit 2; }
       GROK_BIN=$2
+      shift 2
+      ;;
+    --hostctl-bin)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      HOSTCTL_BIN=$2
       shift 2
       ;;
     -h|--help)
@@ -51,6 +58,33 @@ valid_user "$APPROVER_USER" || { echo "invalid approver user name" >&2; exit 2; 
 [ -f "$GROK_BIN" ] && [ -x "$GROK_BIN" ] || { echo "Grok binary is not an executable file" >&2; exit 2; }
 GROK_BIN=$(/usr/bin/readlink -f -- "$GROK_BIN")
 
+TMP_DIR=$(/usr/bin/mktemp -d)
+trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
+
+if [ -z "$HOSTCTL_BIN" ]; then
+  case "$(uname -m)" in
+    x86_64|amd64) RELEASE_ARCH=amd64 ;;
+    aarch64|arm64) RELEASE_ARCH=arm64 ;;
+    *) echo "unsupported architecture: $(uname -m)" >&2; exit 2 ;;
+  esac
+  if [ -x "$PROJECT_DIR/hostctl" ] && [ -f "$PROJECT_DIR/hostctl" ]; then
+    HOSTCTL_BIN="$PROJECT_DIR/hostctl"
+  elif [ -x "$PROJECT_DIR/dist/hostctl-linux-$RELEASE_ARCH" ]; then
+    HOSTCTL_BIN="$PROJECT_DIR/dist/hostctl-linux-$RELEASE_ARCH"
+  elif [ -f "$PROJECT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+    (
+      cd "$PROJECT_DIR"
+      CGO_ENABLED=0 go build -trimpath -o "$TMP_DIR/hostctl" ./cmd/hostctl
+    )
+    HOSTCTL_BIN="$TMP_DIR/hostctl"
+  else
+    echo "hostctl binary not found; use a release archive, populate dist/, or pass --hostctl-bin PATH" >&2
+    exit 2
+  fi
+fi
+[ -f "$HOSTCTL_BIN" ] && [ -x "$HOSTCTL_BIN" ] || { echo "hostctl binary is not an executable file" >&2; exit 2; }
+"$HOSTCTL_BIN" version >/dev/null || { echo "hostctl binary cannot run on this host" >&2; exit 2; }
+
 /usr/bin/getent group hostctl-agent >/dev/null || /usr/sbin/groupadd --system hostctl-agent
 /usr/bin/getent group hostctl-approver >/dev/null || /usr/sbin/groupadd --system hostctl-approver
 if ! /usr/bin/getent passwd "$AGENT_USER" >/dev/null; then
@@ -60,18 +94,15 @@ fi
 /usr/sbin/usermod -a -G hostctl-agent "$AGENT_USER"
 /usr/sbin/usermod -a -G hostctl-approver "$APPROVER_USER"
 
-/usr/bin/install -d -o root -g root -m 0755 /usr/local/lib/hostctl/hostctl
-/usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR"/src/hostctl/*.py /usr/local/lib/hostctl/hostctl/
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/hostctl" /usr/local/bin/hostctl
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/hostctl-admin" /usr/local/bin/hostctl-admin
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/hostctld" /usr/local/sbin/hostctld
-/usr/bin/install -d -o root -g root -m 0755 /usr/local/libexec
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/hostctl-grok-hook" /usr/local/libexec/hostctl-grok-hook
+/usr/bin/install -d -o root -g root -m 0755 /usr/local/libexec /usr/local/bin /usr/local/sbin
+/usr/bin/install -o root -g root -m 0755 "$HOSTCTL_BIN" /usr/local/libexec/hostctl-bin
+/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl
+/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
+/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
+/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/libexec/hostctl-grok-hook
 /usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/grok-agent-launch" /usr/local/libexec/grok-agent-launch
 /usr/bin/install -o root -g root -m 0755 "$GROK_BIN" /usr/local/libexec/grok-hostctl-bin
 
-TMP_DIR=$(/usr/bin/mktemp -d)
-trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
 /bin/sed "s/@AGENT_USER@/$AGENT_USER/g; s/@APPROVER_USER@/$APPROVER_USER/g" \
   "$PROJECT_DIR/packaging/config/config.json.in" >"$TMP_DIR/config.json"
 /bin/sed "s/@AGENT_USER@/$AGENT_USER/g" "$PROJECT_DIR/packaging/bin/grok-safe.in" >"$TMP_DIR/grok-safe"
@@ -119,7 +150,7 @@ fi
 /usr/bin/systemctl enable hostctld.service
 /usr/bin/systemctl restart hostctld.service
 
-echo "hostctl installed."
+echo "hostctl installed: $(/usr/local/bin/hostctl version)"
 echo "Open a second terminal and run: hostctl-admin watch"
 echo "Launch the isolated Grok account with: grok-safe"
 echo "The Grok account may require its own one-time login. Do not copy another user's auth files."

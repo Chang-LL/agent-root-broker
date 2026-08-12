@@ -12,10 +12,9 @@
 - the human reads the displayed command before approving it.
 
 The request and admin sockets use separate Unix groups. The daemon verifies `SO_PEERCRED` instead
-of trusting claimed identities in JSON. Agent requests must descend from a configured agent process
-and descend from the exact configured root-owned Grok executable, then match an active hook-reported
-turn. Approval state is memory-only and bound to the process start time so PID reuse does not inherit
-a lease.
+of trusting claimed identities in JSON. Agent requests must descend from the exact configured
+root-owned Grok executable, then match an active hook-reported turn. Approval state is memory-only
+and bound to the process start time so PID reuse does not inherit a lease.
 
 Commands are resolved through a fixed PATH, require a root-owned non-writable executable and protected
 parent directory chain by default, and execute as an argv array with a fixed environment, closed stdin,
