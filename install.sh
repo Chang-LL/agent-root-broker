@@ -116,7 +116,8 @@ fi
 
 /usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/hostctld.service" /etc/systemd/system/hostctld.service
 /usr/bin/systemctl daemon-reload
-/usr/bin/systemctl enable --now hostctld.service
+/usr/bin/systemctl enable hostctld.service
+/usr/bin/systemctl restart hostctld.service
 
 echo "hostctl installed."
 echo "Open a second terminal and run: hostctl-admin watch"
