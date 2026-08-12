@@ -108,7 +108,7 @@ fi
 /bin/chmod 0644 /etc/grok/managed_config.toml
 
 {
-  echo "%hostctl-approver ALL=($AGENT_USER) NOPASSWD: /usr/local/libexec/grok-agent-launch *"
+  echo "%hostctl-approver ALL=($AGENT_USER) NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *"
 } >"$TMP_DIR/hostctl-grok-agent"
 /usr/sbin/visudo -cf "$TMP_DIR/hostctl-grok-agent"
 /usr/bin/install -o root -g root -m 0440 "$TMP_DIR/hostctl-grok-agent" /etc/sudoers.d/hostctl-grok-agent

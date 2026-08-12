@@ -79,6 +79,10 @@ The installer:
 It does **not** give the agent account sudo rights. Do not add that account to `sudo`, `docker`,
 `lxd`, `disk`, or similar privileged groups.
 
+`grok-safe` preserves only the standard HTTP/HTTPS/ALL/NO proxy variables, in upper- and lowercase,
+when switching users. This supports hosts whose outbound network requires the human shell's proxy.
+It does not preserve API keys or the rest of the caller environment.
+
 The agent account has separate Grok state. On the first launch, authenticate it normally; do not
 copy another user's login tokens into its home.
 

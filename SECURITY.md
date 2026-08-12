@@ -35,6 +35,10 @@ but it cannot make an arbitrary command safe.
 Do not expose either Unix socket through TCP, a container bind mount, or a group shared with unrelated
 users. Do not run Grok in the approver account if the goal is isolation.
 
+The `grok-safe` sudo rule has `SETENV` because the wrapper uses sudo's explicit proxy-variable
+allowlist. The target is the unprivileged agent account, not root, and the wrapper does not use broad
+`sudo -E`. Treat proxy URLs as potentially sensitive and avoid embedding credentials in them.
+
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through the repository's security-advisory feature. Include

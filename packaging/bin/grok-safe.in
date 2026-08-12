@@ -1,2 +1,4 @@
 #!/bin/sh
-exec /usr/bin/sudo -n -u @AGENT_USER@ -H -- /usr/local/libexec/grok-agent-launch "$@"
+exec /usr/bin/sudo -n \
+  --preserve-env=HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,NO_PROXY,http_proxy,https_proxy,all_proxy,no_proxy \
+  -u @AGENT_USER@ -H -- /usr/local/libexec/grok-agent-launch "$@"
