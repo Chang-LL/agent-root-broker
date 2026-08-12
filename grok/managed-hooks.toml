@@ -1,0 +1,32 @@
+# BEGIN hostctl managed hooks
+[[hooks.SessionStart]]
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+
+[[hooks.UserPromptSubmit]]
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+
+[[hooks.PreToolUse]]
+matcher = "Bash"
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+
+[[hooks.Stop]]
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+
+[[hooks.StopFailure]]
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+
+[[hooks.SessionEnd]]
+hooks = [
+  { type = "command", command = "/usr/local/libexec/hostctl-grok-hook", timeout = 5 },
+]
+# END hostctl managed hooks

@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/sudo -n -u @AGENT_USER@ -H -- /usr/local/libexec/grok-agent-launch "$@"

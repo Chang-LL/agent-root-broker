@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hostctl-broker"
+version = "0.1.0"
+description = "Human-approval broker for commands executed by local AI agents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "hostctl contributors" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Systems Administration",
+]
+dependencies = []
+
+[project.scripts]
+hostctl = "hostctl.cli:main"
+hostctl-admin = "hostctl.admin_cli:main"
+hostctld = "hostctl.server:main"
+hostctl-grok-hook = "hostctl.hook_cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,21 @@
+{
+  "runtime_dir": "/run/hostctl",
+  "request_socket": "/run/hostctl/request.sock",
+  "admin_socket": "/run/hostctl/admin.sock",
+  "request_group": "hostctl-agent",
+  "admin_group": "hostctl-approver",
+  "agent_users": ["@AGENT_USER@"],
+  "approver_users": ["@APPROVER_USER@"],
+  "agent_executables": ["/usr/local/libexec/grok-hostctl-bin"],
+  "allowed_cwd_roots": ["/"],
+  "clean_path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "default_timeout_seconds": 300,
+  "max_timeout_seconds": 900,
+  "max_output_bytes": 1048576,
+  "request_ttl_seconds": 300,
+  "message_lease_ttl_seconds": 900,
+  "session_lease_ttl_seconds": 14400,
+  "require_root_daemon": true,
+  "require_root_owned_executable": true,
+  "log_argv": false
+}

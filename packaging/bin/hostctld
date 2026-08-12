@@ -1,0 +1,4 @@
+#!/bin/sh
+PYTHONPATH=/usr/local/lib/hostctl
+export PYTHONPATH
+exec /usr/bin/python3 -m hostctl.server "$@"

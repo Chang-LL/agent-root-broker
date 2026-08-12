@@ -1,0 +1,42 @@
+# Security
+
+## Security model
+
+`hostctl` assumes:
+
+- the AI agent and anything it launches may be malicious;
+- the dedicated agent user has no other route to host privilege;
+- the root-owned broker, installed Grok binary, launcher, configuration, and executable search path
+  cannot be modified by the agent;
+- the human approver account and kernel are trusted;
+- the human reads the displayed command before approving it.
+
+The request and admin sockets use separate Unix groups. The daemon verifies `SO_PEERCRED` instead
+of trusting claimed identities in JSON. Agent requests must descend from a configured agent process
+and descend from the exact configured root-owned Grok executable, then match an active hook-reported
+turn. Approval state is memory-only and bound to the process start time so PID reuse does not inherit
+a lease.
+
+Commands are resolved through a fixed PATH, require a root-owned non-writable executable and protected
+parent directory chain by default, and execute as an argv array with a fixed environment, closed stdin,
+bounded runtime, and bounded captured output. `sudo`, `su`, `pkexec`, and recursive hostctl executables
+are rejected.
+
+## Important limitations
+
+Grok hooks are fail-open. They are lifecycle and usability signals, not a complete enforcement
+mechanism. A missing lifecycle signal causes the broker to deny new escalation rather than grant it,
+while process binding and TTLs constrain stale broad approvals.
+
+Approval does not freeze the filesystem. For example, an approved interpreter may load mutable code,
+or an approved package manager may execute package hooks. The reviewer UI flags common interpreters,
+but it cannot make an arbitrary command safe.
+
+Do not expose either Unix socket through TCP, a container bind mount, or a group shared with unrelated
+users. Do not run Grok in the approver account if the goal is isolation.
+
+## Reporting a vulnerability
+
+Please report vulnerabilities privately through the repository's security-advisory feature. Include
+the affected version, deployment assumptions, reproduction steps, and impact. Do not include real
+credentials, hostnames, IP addresses, or production command output.
