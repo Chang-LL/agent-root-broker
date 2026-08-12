@@ -34,9 +34,12 @@ func platformManage(action, home string, uid uint32) (string, error) {
 	if action == "grant" {
 		_ = removeXattr(fd, marker)
 	}
-	walkRoot, err := syscall.Dup(fd)
+	// Open a fresh directory description instead of duping fd. A duplicate
+	// shares its directory offset with the original description, which makes a
+	// traversal vulnerable to another reader advancing that shared offset.
+	walkRoot, err := syscall.Openat(fd, ".", syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		return "", fmt.Errorf("duplicate home descriptor: %w", err)
+		return "", fmt.Errorf("open home traversal descriptor: %w", err)
 	}
 	if err := walkFD(walkRoot, uint64(stat.Dev), action, uid); err != nil {
 		return "", err
@@ -74,25 +77,13 @@ func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
 	if !isDirectory {
 		return nil
 	}
-	entries, err := file.ReadDir(-1)
+	names, err := file.Readdirnames(-1)
 	if err != nil {
 		return fmt.Errorf("read home directory: %w", err)
 	}
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("inspect home entry: %w", err)
-		}
-		initialKind := info.Mode() & os.ModeType
-		if initialKind != 0 && initialKind != os.ModeDir {
-			continue
-		}
-		name := entry.Name()
+	for _, name := range names {
 		child, err := syscall.Openat(fd, name, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
-		if errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ELOOP) {
+		if errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.ENXIO) || errors.Is(err, syscall.ENODEV) {
 			continue
 		}
 		if err != nil {
