@@ -34,36 +34,38 @@ version is `v0.1.0-alpha.1`.
 
 ### Deterministic installation and upgrade
 
-- [ ] Make binary selection unambiguous. A source checkout must not silently install an ignored or
+- [x] Make binary selection unambiguous. A source checkout must not silently install an ignored or
   stale `dist/` artifact.
-- [ ] Print the selected binary path, embedded version, architecture, and checksum before changing
+- [x] Print the selected binary path, embedded version, architecture, and checksum before changing
   the system.
-- [ ] Test first install, repeated install, and upgrade from the previous release on a clean Linux
-  host.
+- [x] Test first install, repeated install, and replacement by a distinct versioned artifact on a
+  clean Linux host.
+- [ ] Test upgrade from the previous published release.
 - [ ] Document and test rollback and complete uninstallation, including users, groups, sudoers,
   sockets, service files, managed Grok files, and optional ACLs.
 - [ ] Fail safely when installation is interrupted or a validation step fails.
 
 ### System-level verification
 
-- [ ] Run the installer in a disposable Linux system and verify systemd, account/group membership,
+- [x] Run the installer in a disposable Linux system and verify systemd, account/group membership,
   file ownership/modes, sudoers syntax, and socket permissions.
-- [ ] Verify that the agent cannot invoke `sudo` directly but can submit an approved command through
+- [x] Verify that the agent cannot invoke `sudo` directly but can submit an approved command through
   `hostctl`.
-- [ ] Exercise approve, deny, timeout, revoke, daemon restart, and command/message/session lease
-  boundaries end to end.
+- [x] Exercise approve, deny, and a reused message lease through the installed system end to end.
+- [ ] Exercise timeout, revoke, daemon restart, and command/session lease boundaries through the
+  installed system end to end.
 - [ ] Exercise Grok lifecycle integration, including missing, duplicated, delayed, and out-of-order
   hook events.
 - [ ] Exercise home-access grant, repeat grant, partial failure, status, revoke, default ACL
   inheritance, restrictive modes, symlinks, and filesystem boundaries.
-- [ ] Run privileged tests on every release, not only on pushes to `main`.
+- [x] Run privileged tests on every release, not only on pushes to `main`.
 
 ### Code health
 
-- [ ] Require `deadcode ./...` to report no unreachable production functions for the supported Linux
-  build. Run `deadcode -test ./...` separately as a diagnostic for test reachability.
-- [ ] Add pinned, high-signal checks: `staticcheck`, `errcheck`, `shellcheck`, and `actionlint`.
-- [ ] Keep `gofmt`, `go vet`, and `go test -race ./...` as required checks.
+- [x] Require `deadcode ./...` to report no unreachable production functions for the supported Linux
+  build.
+- [x] Add pinned, high-signal checks: `staticcheck`, `errcheck`, `shellcheck`, and `actionlint`.
+- [x] Keep `gofmt`, `go vet`, and `go test -race ./...` as required checks.
 - [ ] Publish Linux coverage by package. Improve security-boundary coverage before imposing a global
   percentage gate; prioritize `server`, `proc`, `commands`, `broker`, `executor`, and `homeaccess`.
 - [ ] Review low-level ACL syscalls and platform code for a smaller maintained interface, including
@@ -71,7 +73,7 @@ version is `v0.1.0-alpha.1`.
 
 ### Release and repository hygiene
 
-- [ ] Make the release workflow run the same required checks as pull requests.
+- [x] Make the release workflow run the same required checks as pull requests.
 - [ ] Pin third-party GitHub Actions to immutable commit SHAs.
 - [ ] Publish checksums and build provenance for release archives.
 - [ ] Scan the complete Git history for credentials, private host details, and unintended personal
