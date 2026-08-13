@@ -117,3 +117,23 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 		t.Fatal("English and Chinese roadmap checklist states are out of sync")
 	}
 }
+
+func TestVendorPayloadsStayBehindIntegrationAdapters(t *testing.T) {
+	adapter := projectFile(t, "internal", "integrations", "grok", "adapter.go")
+	for _, field := range []string{"hookEventName", "toolName", "toolInput", `raw["reason"]`} {
+		if !strings.Contains(adapter, field) {
+			t.Fatalf("Grok adapter no longer owns expected vendor field %q", field)
+		}
+		for _, corePath := range [][]string{{"internal", "broker", "broker.go"}, {"internal", "server", "server_linux.go"}} {
+			if strings.Contains(projectFile(t, corePath...), field) {
+				t.Fatalf("vendor field %q leaked into %s", field, filepath.Join(corePath...))
+			}
+		}
+	}
+	if !strings.Contains(projectFile(t, "internal", "agent", "lifecycle.go"), "type HookAdapter interface") {
+		t.Fatal("agent hook adapter boundary is missing")
+	}
+	if !strings.Contains(projectFile(t, "internal", "approval", "provider.go"), "type Provider interface") {
+		t.Fatal("approval provider boundary is missing")
+	}
+}

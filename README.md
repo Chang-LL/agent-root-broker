@@ -6,8 +6,10 @@
 without giving the agent `sudo`, Docker, LXD, or another persistent path to root. Every escalation
 is denied by default and waits for a human decision on a separate Unix socket.
 
-The initial integration targets Grok Build. The broker itself is agent-agnostic; an integration
-only needs to report session/turn lifecycle events and invoke `hostctl sudo -- ...`.
+The initial integration targets Grok Build. Agent hooks are normalized through an adapter before
+they reach the broker, while approval behavior is selected through a separate decision-provider
+interface. These are internal Go extension points in the alpha release, not yet a stable or
+dynamically loaded plugin API.
 
 > **Alpha:** Use this on a test host first. An approved arbitrary root command is still an approved
 > arbitrary root command. The design reduces unattended privilege, not the consequences of a bad
@@ -18,17 +20,13 @@ Release gates and planned hardening work are tracked in [ROADMAP.md](ROADMAP.md)
 ## How it works
 
 ```text
-unprivileged Grok process
-  ├─ lifecycle hooks ───────────┐
-  └─ hostctl sudo -- argv ─────┼─> /run/hostctl/request.sock
-                               │             │
-human in another SSH/tmux pane └─ hostctl-admin watch
-                                      │
-                                      └────> /run/hostctl/admin.sock
-                                                   │
-                                             root hostctld
-                                                   │
-                                             exec(argv), no shell
+Grok hook payload ─> Grok adapter ─> normalized lifecycle ─┐
+agent: hostctl sudo -- argv ─> normalized command request ─┼─> broker
+                                                          │      │
+human ─> admin Unix socket ─> ManualProvider.Reviewer ─────┘      │
+                                                     Provider.Decide()
+                                                                │
+                                                        lease + exec(argv)
 ```
 
 The request socket is accessible only to the dedicated agent account. The admin socket is
@@ -40,6 +38,26 @@ a process with a matching name.
 Hooks improve lifecycle accuracy and teach Grok the workflow, but hooks fail open in Grok and are
 **not** the security boundary. The dedicated OS user, socket permissions, peer-credential checks,
 and broker's default-deny state are the boundary.
+
+### Extension boundaries
+
+The runtime now has two explicit seams:
+
+- `agent.HookAdapter` converts vendor hook fields into four normalized lifecycle events and extracts
+  shell commands for integration-side guardrails. Grok fields exist only in
+  `internal/integrations/grok`; neither the server nor broker parses them.
+- `approval.Provider` receives a normalized request through `Decide(ctx, request)`. The shipped
+  `ManualProvider` waits for a human and also implements the optional `Reviewer` interface used by
+  the admin socket. A non-interactive provider does not need to expose a review queue. In every
+  case, the broker validates the returned decision, records its provider/principal identity, and
+  retains ownership of leases and execution.
+
+The installer, launcher, managed hook assets, and multicall hook name are still Grok-specific, and
+provider selection is currently compile-time. The Unix sockets are also the only implemented
+transport. Separating installation profiles, making transport replaceable, and deciding whether to
+stabilize a public plugin API remain roadmap work. Any added provider or transport must be opt-in,
+auditable, and document its own trust model instead of silently inheriting the security claims of
+the default local-human mode.
 
 ## Approval scopes
 

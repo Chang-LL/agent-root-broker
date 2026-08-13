@@ -81,7 +81,7 @@ func Admin(args []string) int {
 				if item.Turn != nil {
 					turn = strconv.Itoa(*item.Turn)
 				}
-				fmt.Fprintf(os.Stdout, "%s  scope=%s  session=%s  turn=%s  expires=%s\n", item.ID, item.Scope, item.SessionID, turn, time.Unix(int64(item.ExpiresAt), 0).Format("2006-01-02 15:04:05"))
+				fmt.Fprintf(os.Stdout, "%s  scope=%s  provider=%s  session=%s  turn=%s  expires=%s\n", item.ID, item.Scope, item.DecisionProvider, item.SessionID, turn, time.Unix(int64(item.ExpiresAt), 0).Format("2006-01-02 15:04:05"))
 			}
 		}
 		return responseExit(response.baseResponse, asJSON)

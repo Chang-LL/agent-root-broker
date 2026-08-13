@@ -100,6 +100,14 @@ version is `v0.1.0-alpha.1`.
 
 After the first public alpha, prioritize field evidence over adding broad policy features:
 
+- [x] Define normalized lifecycle events and an agent-adapter contract so vendor hook payloads do
+  not enter the core broker.
+- [ ] Separate core host installation from agent-specific integration profiles; migrate Grok to the
+  first profile before claiming support for another agent.
+- [x] Define a decision-provider interface and migrate local human review to the default manual
+  provider while keeping leases and execution in the broker.
+- [ ] Extract the Unix-socket server behind a transport interface before adding authenticated remote
+  reviewers; define separate trust and audit models for every non-default provider and transport.
 - [ ] Add a directory-scoped sharing mode that is safer and cheaper than recursively granting an
   entire home directory.
 - [ ] Define supported Linux distributions, filesystems, Grok versions, and an explicit compatibility
@@ -120,9 +128,13 @@ A `v1.0.0` release requires:
 - documented vulnerability response and supported-version policies; and
 - evidence from public alpha use that approval scopes and lifecycle binding behave predictably.
 
-## Non-goals
+## Current scope boundary
 
-Unless the security model is deliberately revised, the roadmap does not include unattended root
-approval, a network-exposed broker, or treating AI-generated policy as equivalent to a human
-decision. Command allowlisting may be explored separately, but it is not a substitute for the
-current explicit approval model.
+The alpha release wires the manual human provider to local Unix-socket transport. A compile-time
+decision-provider interface now separates approval decisions from leases and execution, but no
+unattended provider or alternative transport is shipped. Network transport and AI-generated policy
+remain outside the current supported mode, not permanent architectural non-goals. Each future mode
+needs explicit isolation, authentication, failure behavior, auditability, and threat models. No
+provider should silently weaken or claim equivalence to the default human-approval boundary.
+Command allowlisting may also be explored as a provider or an additional constraint rather than a
+substitute for explicit approval.

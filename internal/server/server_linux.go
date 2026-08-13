@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"hostctl/internal/agent"
 	"hostctl/internal/broker"
 	"hostctl/internal/config"
 	"hostctl/internal/executor"
@@ -28,16 +29,16 @@ import (
 const maxRequestBytes = 256 * 1024
 
 type requestEnvelope struct {
-	Op             string         `json:"op"`
-	Argv           []string       `json:"argv"`
-	CWD            string         `json:"cwd"`
-	TimeoutSeconds *int           `json:"timeoutSeconds"`
-	Event          map[string]any `json:"event"`
-	RequestID      string         `json:"requestId"`
-	Decision       string         `json:"decision"`
-	Scope          string         `json:"scope"`
-	LeaseID        string         `json:"leaseId"`
-	Action         string         `json:"action"`
+	Op             string                `json:"op"`
+	Argv           []string              `json:"argv"`
+	CWD            string                `json:"cwd"`
+	TimeoutSeconds *int                  `json:"timeoutSeconds"`
+	Lifecycle      *agent.LifecycleEvent `json:"lifecycle"`
+	RequestID      string                `json:"requestId"`
+	Decision       string                `json:"decision"`
+	Scope          string                `json:"scope"`
+	LeaseID        string                `json:"leaseId"`
+	Action         string                `json:"action"`
 }
 
 type errorEnvelope struct {
@@ -229,12 +230,12 @@ func (s *listener) handleRequest(connection *net.UnixConn, reader *bufio.Reader,
 		return
 	}
 	switch request.Op {
-	case "hook":
-		if request.Event == nil {
-			writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "invalid_hook", Message: "event must be an object"}})
+	case "lifecycle":
+		if request.Lifecycle == nil {
+			writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "invalid_lifecycle", Message: "lifecycle must be an object"}})
 			return
 		}
-		if err := s.broker.HandleHook(process, request.Event); err != nil {
+		if err := s.broker.HandleLifecycle(process, *request.Lifecycle); err != nil {
 			writeJSON(connection, errorEnvelope{Error: err})
 			return
 		}

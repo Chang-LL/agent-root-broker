@@ -29,7 +29,7 @@ func run() int {
 	case "hostctl-admin":
 		return commands.Admin(args)
 	case "hostctl-grok-hook":
-		return commands.Hook()
+		return commands.GrokHook()
 	case "hostctld":
 		configPath := config.DefaultPath
 		if len(args) == 2 && args[0] == "--config" {

@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
+	"hostctl/internal/agent"
+	"hostctl/internal/approval"
 	"hostctl/internal/config"
 	"hostctl/internal/executor"
 	"hostctl/internal/proc"
@@ -36,77 +37,38 @@ type Session struct {
 	UpdatedAt time.Time
 }
 
-type Pending struct {
-	ID          string
-	Process     proc.Identity
-	SessionID   string
-	Turn        int
-	AgentUID    uint32
-	Command     executor.Command
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
-	Decision    string
-	Scope       string
-	ApproverUID uint32
-	done        chan struct{}
-}
-
-type PendingView struct {
-	ID        string           `json:"id"`
-	SessionID string           `json:"sessionId"`
-	Turn      int              `json:"turn"`
-	AgentUID  uint32           `json:"agentUid"`
-	Process   string           `json:"process"`
-	CreatedAt float64          `json:"createdAt"`
-	ExpiresAt float64          `json:"expiresAt"`
-	Decision  *string          `json:"decision"`
-	Scope     *string          `json:"scope"`
-	Command   executor.Command `json:"command"`
-}
-
-func (p *Pending) View() PendingView {
-	view := PendingView{
-		ID: p.ID, SessionID: p.SessionID, Turn: p.Turn, AgentUID: p.AgentUID,
-		Process: p.Process.Key(), CreatedAt: floatSeconds(p.CreatedAt),
-		ExpiresAt: floatSeconds(p.ExpiresAt), Command: p.Command,
-	}
-	if p.Decision != "" {
-		decision := p.Decision
-		view.Decision = &decision
-	}
-	if p.Scope != "" {
-		scope := p.Scope
-		view.Scope = &scope
-	}
-	return view
-}
+type PendingView = approval.PendingView
 
 type Lease struct {
-	ID          string
-	Scope       string
-	Process     proc.Identity
-	SessionID   string
-	Turn        *int
-	ApproverUID uint32
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
+	ID               string
+	Scope            string
+	Process          proc.Identity
+	SessionID        string
+	Turn             *int
+	DecisionProvider string
+	Principal        string
+	ApproverUID      uint32
+	CreatedAt        time.Time
+	ExpiresAt        time.Time
 }
 
 type LeaseView struct {
-	ID          string  `json:"id"`
-	Scope       string  `json:"scope"`
-	Process     string  `json:"process"`
-	SessionID   string  `json:"sessionId"`
-	Turn        *int    `json:"turn"`
-	ApproverUID uint32  `json:"approverUid"`
-	CreatedAt   float64 `json:"createdAt"`
-	ExpiresAt   float64 `json:"expiresAt"`
+	ID               string  `json:"id"`
+	Scope            string  `json:"scope"`
+	Process          string  `json:"process"`
+	SessionID        string  `json:"sessionId"`
+	Turn             *int    `json:"turn"`
+	DecisionProvider string  `json:"decisionProvider"`
+	Principal        string  `json:"principal"`
+	ApproverUID      uint32  `json:"approverUid"`
+	CreatedAt        float64 `json:"createdAt"`
+	ExpiresAt        float64 `json:"expiresAt"`
 }
 
 func (l *Lease) View() LeaseView {
 	return LeaseView{
 		ID: l.ID, Scope: l.Scope, Process: l.Process.Key(), SessionID: l.SessionID,
-		Turn: l.Turn, ApproverUID: l.ApproverUID,
+		Turn: l.Turn, DecisionProvider: l.DecisionProvider, Principal: l.Principal, ApproverUID: l.ApproverUID,
 		CreatedAt: floatSeconds(l.CreatedAt), ExpiresAt: floatSeconds(l.ExpiresAt),
 	}
 }
@@ -119,21 +81,39 @@ type Execution struct {
 	executor.Result
 }
 
+type inflightRequest struct {
+	Process   proc.Identity
+	SessionID string
+	ExpiresAt time.Time
+	Cancel    context.CancelFunc
+}
+
 type Broker struct {
 	cfg      config.Config
 	mu       sync.Mutex
 	sessions map[string]*Session
-	pending  map[string]*Pending
+	inflight map[string]inflightRequest
 	leases   map[string]*Lease
+	provider approval.Provider
+	reviewer approval.Reviewer
 	now      func() time.Time
 	alive    func(proc.Identity) bool
 	execute  func(executor.Command, config.Config) executor.Result
 }
 
 func New(cfg config.Config) *Broker {
+	return NewWithProvider(cfg, approval.NewManualProvider())
+}
+
+func NewWithProvider(cfg config.Config, provider approval.Provider) *Broker {
+	if provider == nil {
+		provider = approval.NewManualProvider()
+	}
+	reviewer, _ := provider.(approval.Reviewer)
 	return &Broker{
-		cfg: cfg, sessions: make(map[string]*Session), pending: make(map[string]*Pending),
-		leases: make(map[string]*Lease), now: time.Now, alive: proc.Alive, execute: executor.Execute,
+		cfg: cfg, sessions: make(map[string]*Session), inflight: make(map[string]inflightRequest),
+		leases: make(map[string]*Lease), provider: provider, reviewer: reviewer,
+		now: time.Now, alive: proc.Alive, execute: executor.Execute,
 	}
 }
 
@@ -145,49 +125,41 @@ func floatSeconds(value time.Time) float64 {
 	return float64(value.UnixNano()) / float64(time.Second)
 }
 
-func eventName(event map[string]any) string {
-	name, _ := event["hookEventName"].(string)
-	return strings.ToLower(strings.ReplaceAll(name, "_", ""))
-}
-
-func (b *Broker) HandleHook(process proc.Identity, event map[string]any) *Error {
-	sessionID, _ := event["sessionId"].(string)
-	if sessionID == "" || len(sessionID) > 256 {
-		return brokerError("invalid_hook", "hook event is missing a valid sessionId")
+func (b *Broker) HandleLifecycle(process proc.Identity, event agent.LifecycleEvent) *Error {
+	if err := event.Validate(); err != nil {
+		return brokerError("invalid_lifecycle", "invalid lifecycle event: %v", err)
 	}
-	name := eventName(event)
 	now := b.now()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.pruneLocked(now)
-	key := sessionKey(process, sessionID)
-	switch name {
-	case "sessionstart":
-		b.sessions[key] = &Session{Process: process, SessionID: sessionID, UpdatedAt: now}
-	case "userpromptsubmit":
+	key := sessionKey(process, event.SessionID)
+	switch event.Kind {
+	case agent.SessionStarted:
+		b.sessions[key] = &Session{Process: process, SessionID: event.SessionID, UpdatedAt: now}
+	case agent.TurnStarted:
 		state := b.sessions[key]
 		if state == nil {
-			state = &Session{Process: process, SessionID: sessionID}
+			state = &Session{Process: process, SessionID: event.SessionID}
 			b.sessions[key] = state
 		}
-		b.cancelPendingLocked(process, sessionID, "new-turn")
+		b.cancelPendingLocked(process, event.SessionID, "new-turn")
 		state.Turn++
 		state.Active = true
 		state.UpdatedAt = now
-		b.revokeMessageLeasesLocked(process, sessionID)
-	case "stop", "stopfailure":
+		b.revokeMessageLeasesLocked(process, event.SessionID)
+	case agent.TurnEnded:
 		state := b.sessions[key]
-		reason, _ := event["reason"].(string)
-		if state != nil && (name == "stopfailure" || reason == "end_turn") {
+		if state != nil {
 			state.Active = false
 			state.UpdatedAt = now
-			b.revokeMessageLeasesLocked(process, sessionID)
-			b.cancelPendingLocked(process, sessionID, "turn-ended")
+			b.revokeMessageLeasesLocked(process, event.SessionID)
+			b.cancelPendingLocked(process, event.SessionID, "turn-ended")
 		}
-	case "sessionend":
-		b.removeSessionLocked(process, sessionID, "session-end")
+	case agent.SessionEnded:
+		b.removeSessionLocked(process, event.SessionID, "session-end")
 	}
-	b.audit("hook", map[string]any{"hook": name, "session": sessionID, "process": process.Key()})
+	b.audit("lifecycle", map[string]any{"kind": event.Kind, "session": event.SessionID, "process": process.Key()})
 	return nil
 }
 
@@ -202,10 +174,14 @@ func (b *Broker) Request(ctx context.Context, process proc.Identity, agentUID ui
 	}
 	var requestID any
 	var approvalScope string
+	var decisionProvider string
+	var decisionPrincipal string
 	var approverUID uint32
 	if lease := b.matchingLeaseLocked(session, now); lease != nil {
 		requestID = nil
 		approvalScope = lease.Scope
+		decisionProvider = lease.DecisionProvider
+		decisionPrincipal = lease.Principal
 		approverUID = lease.ApproverUID
 		b.mu.Unlock()
 	} else {
@@ -214,12 +190,15 @@ func (b *Broker) Request(ctx context.Context, process proc.Identity, agentUID ui
 			b.mu.Unlock()
 			return Execution{}, brokerError("internal_error", "create request ID: %v", idErr)
 		}
-		pending := &Pending{
+		request := approval.Request{
 			ID: id, Process: process, SessionID: session.SessionID, Turn: session.Turn,
 			AgentUID: agentUID, Command: command, CreatedAt: now,
-			ExpiresAt: now.Add(time.Duration(b.cfg.RequestTTLSeconds) * time.Second), done: make(chan struct{}),
+			ExpiresAt: now.Add(time.Duration(b.cfg.RequestTTLSeconds) * time.Second),
 		}
-		b.pending[id] = pending
+		decisionContext, cancel := context.WithDeadline(ctx, request.ExpiresAt)
+		b.inflight[id] = inflightRequest{
+			Process: process, SessionID: session.SessionID, ExpiresAt: request.ExpiresAt, Cancel: cancel,
+		}
 		fields := map[string]any{
 			"request": id, "command_hash": command.Hash, "executable": command.Argv[0],
 			"session": session.SessionID, "turn": session.Turn,
@@ -230,32 +209,34 @@ func (b *Broker) Request(ctx context.Context, process proc.Identity, agentUID ui
 		b.audit("request-created", fields)
 		b.mu.Unlock()
 
-		timer := time.NewTimer(time.Until(pending.ExpiresAt))
-		select {
-		case <-pending.done:
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-		case <-timer.C:
-			b.finishPending(id, "expired", "", 0)
-		case <-ctx.Done():
-			b.finishPending(id, "cancelled", "", 0)
-		}
-
+		decision, providerErr := b.provider.Decide(decisionContext, request)
+		cancel()
 		b.mu.Lock()
-		delete(b.pending, id)
-		decision, scope, approvedBy := pending.Decision, pending.Scope, pending.ApproverUID
-		b.mu.Unlock()
-		if decision != "approved" {
-			if decision == "" {
-				decision = "cancelled"
-			}
-			return Execution{}, brokerError(decision, "request %s was %s", id, decision)
+		delete(b.inflight, id)
+		if providerErr != nil {
+			b.mu.Unlock()
+			return Execution{}, brokerError("decision_provider_failed", "decision provider failed: %v", providerErr)
 		}
-		requestID, approvalScope, approverUID = id, scope, approvedBy
+		if err := decision.Validate(); err != nil {
+			b.mu.Unlock()
+			return Execution{}, brokerError("invalid_provider_decision", "decision provider returned an invalid result: %v", err)
+		}
+		if decision.Outcome == approval.Approved {
+			if !b.requestContextActiveLocked(request) {
+				b.mu.Unlock()
+				return Execution{}, brokerError("cancelled", "request %s no longer belongs to the active agent turn", id)
+			}
+			if err := b.ensureLeaseLocked(request, decision, b.now()); err != nil {
+				b.mu.Unlock()
+				return Execution{}, err
+			}
+		}
+		b.mu.Unlock()
+		if decision.Outcome != approval.Approved {
+			return Execution{}, brokerError(decision.Outcome, "request %s was %s", id, decision.Outcome)
+		}
+		requestID, approvalScope = id, decision.Scope
+		decisionProvider, decisionPrincipal, approverUID = decision.Provider, decision.Principal, decision.ApproverUID
 	}
 
 	if ctx.Err() != nil || !b.alive(process) {
@@ -263,7 +244,8 @@ func (b *Broker) Request(ctx context.Context, process proc.Identity, agentUID ui
 	}
 	b.audit("execution-started", map[string]any{
 		"request": requestID, "command_hash": command.Hash,
-		"scope": approvalScope, "approver_uid": approverUID,
+		"scope": approvalScope, "decision_provider": decisionProvider,
+		"principal": decisionPrincipal, "approver_uid": approverUID,
 	})
 	result := b.execute(command, b.cfg)
 	b.audit("execution-finished", map[string]any{
@@ -280,16 +262,10 @@ func (b *Broker) Pending() []PendingView {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.pruneLocked(b.now())
-	items := make([]*Pending, 0, len(b.pending))
-	for _, item := range b.pending {
-		items = append(items, item)
+	if b.reviewer == nil {
+		return []PendingView{}
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
-	views := make([]PendingView, 0, len(items))
-	for _, item := range items {
-		views = append(views, item.View())
-	}
-	return views
+	return b.reviewer.Pending()
 }
 
 func (b *Broker) Leases() []LeaseView {
@@ -309,54 +285,33 @@ func (b *Broker) Leases() []LeaseView {
 }
 
 func (b *Broker) Decide(requestID, decision, scope string, approverUID uint32) *Error {
-	if decision != "approved" && decision != "denied" {
-		return brokerError("invalid_decision", "decision must be approved or denied")
-	}
-	if scope != "command" && scope != "message" && scope != "session" {
-		return brokerError("invalid_scope", "scope must be command, message, or session")
-	}
 	now := b.now()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.pruneLocked(now)
-	pending := b.pending[requestID]
-	if pending == nil || pending.Decision != "" {
-		return brokerError("not_found", "pending request not found: %s", requestID)
+	if b.reviewer == nil {
+		return brokerError("review_unsupported", "the configured decision provider does not accept interactive reviews")
 	}
-	if decision == "denied" {
-		scope = "command"
+	reviewed, reviewErr := b.reviewer.Review(requestID, decision, scope, approverUID)
+	if reviewErr != nil {
+		return brokerError(reviewErr.Code, "%s", reviewErr.Message)
 	}
-	if decision == "approved" && (scope == "message" || scope == "session") {
-		ttl := b.cfg.SessionLeaseTTLSeconds
-		var turn *int
-		if scope == "message" {
-			ttl = b.cfg.MessageLeaseTTLSeconds
-			value := pending.Turn
-			turn = &value
+	if decision == approval.Denied {
+		scope = approval.CommandScope
+	}
+	if err := reviewed.Decision.Validate(); err != nil ||
+		reviewed.Decision.Outcome != decision || reviewed.Decision.Scope != scope {
+		return brokerError("invalid_provider_decision", "interactive decision provider returned an invalid or mismatched review")
+	}
+	if decision == approval.Approved {
+		if err := b.ensureLeaseLocked(reviewed.Request, reviewed.Decision, now); err != nil {
+			return err
 		}
-		leaseID, err := randomID()
-		if err != nil {
-			return brokerError("internal_error", "create lease ID: %v", err)
-		}
-		lease := &Lease{
-			ID: leaseID, Scope: scope, Process: pending.Process, SessionID: pending.SessionID,
-			Turn: turn, ApproverUID: approverUID, CreatedAt: now,
-			ExpiresAt: now.Add(time.Duration(ttl) * time.Second),
-		}
-		b.leases[lease.ID] = lease
-		for _, other := range b.pending {
-			sameContext := other.Process == pending.Process && other.SessionID == pending.SessionID &&
-				(scope == "session" || other.Turn == pending.Turn)
-			if sameContext && other.Decision == "" {
-				b.completePendingLocked(other, "approved", scope, approverUID)
-			}
-		}
-	} else {
-		b.completePendingLocked(pending, decision, scope, approverUID)
 	}
 	b.audit("request-decided", map[string]any{
 		"request": requestID, "decision": decision, "scope": scope,
-		"approver_uid": approverUID, "command_hash": pending.Command.Hash,
+		"decision_provider": reviewed.Decision.Provider, "principal": reviewed.Decision.Principal,
+		"approver_uid": approverUID, "command_hash": reviewed.Request.Command.Hash,
 	})
 	return nil
 }
@@ -377,13 +332,13 @@ func (b *Broker) activeSessionLocked(process proc.Identity) (*Session, *Error) {
 	for _, session := range b.sessions {
 		if session.Process == process && session.Active {
 			if found != nil {
-				return nil, brokerError("no_active_turn", "no unique active Grok turn")
+				return nil, brokerError("no_active_turn", "no unique active agent turn")
 			}
 			found = session
 		}
 	}
 	if found == nil {
-		return nil, brokerError("no_active_turn", "no unique active Grok turn; start Grok through grok-safe and submit a prompt")
+		return nil, brokerError("no_active_turn", "no unique active agent turn; use the integration's managed launcher and submit a prompt")
 	}
 	return found, nil
 }
@@ -400,22 +355,42 @@ func (b *Broker) matchingLeaseLocked(session *Session, now time.Time) *Lease {
 	return nil
 }
 
-func (b *Broker) finishPending(id, decision, scope string, approverUID uint32) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if pending := b.pending[id]; pending != nil {
-		b.completePendingLocked(pending, decision, scope, approverUID)
-	}
+func (b *Broker) requestContextActiveLocked(request approval.Request) bool {
+	session := b.sessions[sessionKey(request.Process, request.SessionID)]
+	return session != nil && session.Active && session.Turn == request.Turn
 }
 
-func (b *Broker) completePendingLocked(pending *Pending, decision, scope string, approverUID uint32) {
-	if pending.Decision != "" {
-		return
+func (b *Broker) ensureLeaseLocked(request approval.Request, decision approval.Decision, now time.Time) *Error {
+	if decision.Scope == approval.CommandScope {
+		return nil
 	}
-	pending.Decision = decision
-	pending.Scope = scope
-	pending.ApproverUID = approverUID
-	close(pending.done)
+	for _, lease := range b.leases {
+		if !lease.ExpiresAt.After(now) || lease.Process != request.Process || lease.SessionID != request.SessionID {
+			continue
+		}
+		if lease.Scope == approval.SessionScope ||
+			(decision.Scope == approval.MessageScope && lease.Scope == approval.MessageScope && lease.Turn != nil && *lease.Turn == request.Turn) {
+			return nil
+		}
+	}
+	ttl := b.cfg.SessionLeaseTTLSeconds
+	var turn *int
+	if decision.Scope == approval.MessageScope {
+		ttl = b.cfg.MessageLeaseTTLSeconds
+		value := request.Turn
+		turn = &value
+	}
+	leaseID, err := randomID()
+	if err != nil {
+		return brokerError("internal_error", "create lease ID: %v", err)
+	}
+	b.leases[leaseID] = &Lease{
+		ID: leaseID, Scope: decision.Scope, Process: request.Process, SessionID: request.SessionID,
+		Turn: turn, DecisionProvider: decision.Provider, Principal: decision.Principal,
+		ApproverUID: decision.ApproverUID, CreatedAt: now,
+		ExpiresAt: now.Add(time.Duration(ttl) * time.Second),
+	}
+	return nil
 }
 
 func (b *Broker) revokeMessageLeasesLocked(process proc.Identity, sessionID string) {
@@ -427,10 +402,10 @@ func (b *Broker) revokeMessageLeasesLocked(process proc.Identity, sessionID stri
 }
 
 func (b *Broker) cancelPendingLocked(process proc.Identity, sessionID, reason string) {
-	for _, pending := range b.pending {
-		if pending.Process == process && pending.SessionID == sessionID && pending.Decision == "" {
-			b.completePendingLocked(pending, "cancelled", "", 0)
-			b.audit("request-cancelled", map[string]any{"request": pending.ID, "reason": reason})
+	for id, request := range b.inflight {
+		if request.Process == process && request.SessionID == sessionID {
+			request.Cancel()
+			b.audit("request-cancelled", map[string]any{"request": id, "reason": reason})
 		}
 	}
 }
@@ -463,9 +438,9 @@ func (b *Broker) pruneLocked(now time.Time) {
 			b.cancelPendingLocked(session.Process, session.SessionID, "process-exited")
 		}
 	}
-	for _, pending := range b.pending {
-		if pending.Decision == "" && !pending.ExpiresAt.After(now) {
-			b.completePendingLocked(pending, "expired", "", 0)
+	for _, request := range b.inflight {
+		if !request.ExpiresAt.After(now) {
+			request.Cancel()
 		}
 	}
 }

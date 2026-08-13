@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"regexp"
-	"strings"
 
+	"hostctl/internal/agent"
 	"hostctl/internal/client"
+	"hostctl/internal/integrations/grok"
 )
 
 var (
@@ -19,23 +20,21 @@ func ContainsDirectSudo(command string) bool {
 	return directSudo.MatchString(withoutHostctl)
 }
 
-func Hook() int {
-	var event map[string]any
-	if err := json.NewDecoder(os.Stdin).Decode(&event); err != nil {
+func GrokHook() int {
+	return runAgentHook(grok.Adapter{})
+}
+
+func runAgentHook(adapter agent.HookAdapter) int {
+	var raw map[string]any
+	if err := json.NewDecoder(os.Stdin).Decode(&raw); err != nil {
 		return 0
 	}
-	socketPath := stringEnv("HOSTCTL_SOCKET", defaultRequestSocket)
-	var ignored baseResponse
-	_ = client.Call(socketPath, map[string]any{"op": "hook", "event": event}, &ignored)
-	name, _ := event["hookEventName"].(string)
-	name = strings.ToLower(strings.ReplaceAll(name, "_", ""))
-	if name != "pretooluse" {
-		return 0
+	if event, ok, err := adapter.NormalizeLifecycle(raw); err == nil && ok {
+		socketPath := stringEnv("HOSTCTL_SOCKET", defaultRequestSocket)
+		var ignored baseResponse
+		_ = client.Call(socketPath, map[string]any{"op": "lifecycle", "lifecycle": event}, &ignored)
 	}
-	toolName, _ := event["toolName"].(string)
-	toolInput, _ := event["toolInput"].(map[string]any)
-	command, _ := toolInput["command"].(string)
-	if (toolName == "Bash" || toolName == "run_terminal_command") && ContainsDirectSudo(command) {
+	if command, ok := adapter.ShellCommand(raw); ok && ContainsDirectSudo(command) {
 		printJSON(map[string]any{"decision": "deny", "reason": "Direct sudo is disabled. Use: hostctl sudo -- <program> <args>"})
 	}
 	return 0

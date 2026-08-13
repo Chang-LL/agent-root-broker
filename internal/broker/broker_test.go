@@ -2,9 +2,12 @@ package broker
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"hostctl/internal/agent"
+	"hostctl/internal/approval"
 	"hostctl/internal/config"
 	"hostctl/internal/executor"
 	"hostctl/internal/proc"
@@ -21,8 +24,8 @@ func newTestBroker() (*Broker, proc.Identity) {
 		return executor.Result{ExitCode: 0, Stdout: command.Argv[len(command.Argv)-1] + "\n"}
 	}
 	process := proc.Identity{PID: 4242, UID: 1001, StartTime: 99}
-	_ = b.HandleHook(process, map[string]any{"hookEventName": "session_start", "sessionId": "session-a"})
-	_ = b.HandleHook(process, map[string]any{"hookEventName": "user_prompt_submit", "sessionId": "session-a"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionStarted, SessionID: "session-a"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "session-a"})
 	return b, process
 }
 
@@ -33,6 +36,29 @@ func testCommand(text string) executor.Command {
 type requestResult struct {
 	value Execution
 	err   *Error
+}
+
+type automaticProvider struct{}
+
+func (automaticProvider) Decide(context.Context, approval.Request) (approval.Decision, error) {
+	return approval.Decision{
+		Outcome: approval.Approved, Scope: approval.CommandScope,
+		Provider: "automatic-test", Principal: "test-rule",
+	}, nil
+}
+
+type delayedProvider struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p delayedProvider) Decide(context.Context, approval.Request) (approval.Decision, error) {
+	close(p.started)
+	<-p.release
+	return approval.Decision{
+		Outcome: approval.Approved, Scope: approval.CommandScope,
+		Provider: "delayed-test", Principal: "test-rule",
+	}, nil
 }
 
 func startRequest(b *Broker, process proc.Identity, text string) <-chan requestResult {
@@ -87,7 +113,7 @@ func TestMessageScopeEndsAtStop(t *testing.T) {
 	if err != nil || automatic.ApprovalScope != "message" {
 		t.Fatalf("message lease not reused: %+v, %v", automatic, err)
 	}
-	_ = b.HandleHook(process, map[string]any{"hookEventName": "stop", "sessionId": "session-a", "reason": "end_turn"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnEnded, SessionID: "session-a"})
 	if len(b.Leases()) != 0 {
 		t.Fatal("message lease survived stop")
 	}
@@ -105,8 +131,8 @@ func TestSessionScopeSurvivesNextPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-first
-	_ = b.HandleHook(process, map[string]any{"hookEventName": "stop", "sessionId": "session-a", "reason": "end_turn"})
-	_ = b.HandleHook(process, map[string]any{"hookEventName": "user_prompt_submit", "sessionId": "session-a"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnEnded, SessionID: "session-a"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "session-a"})
 	result, err := b.Request(context.Background(), process, process.UID, testCommand("next"))
 	if err != nil || result.ApprovalScope != "session" {
 		t.Fatalf("session lease not reused: %+v, %v", result, err)
@@ -134,5 +160,54 @@ func TestDenialAndCancellation(t *testing.T) {
 	cancel()
 	if err := <-result; err == nil || err.Code != "cancelled" {
 		t.Fatalf("unexpected cancellation: %v", err)
+	}
+}
+
+func TestCustomDecisionProviderDoesNotRequireInteractiveReviewer(t *testing.T) {
+	cfg := config.Default()
+	b := NewWithProvider(cfg, automaticProvider{})
+	b.alive = func(proc.Identity) bool { return true }
+	b.execute = func(command executor.Command, _ config.Config) executor.Result {
+		return executor.Result{ExitCode: 0, Stdout: command.Argv[len(command.Argv)-1] + "\n"}
+	}
+	process := proc.Identity{PID: 8, UID: 9, StartTime: 10}
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionStarted, SessionID: "custom"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "custom"})
+
+	result, err := b.Request(context.Background(), process, process.UID, testCommand("automatic"))
+	if err != nil || result.Stdout != "automatic\n" || result.ApprovalScope != approval.CommandScope {
+		t.Fatalf("unexpected custom-provider result: %+v, %v", result, err)
+	}
+	if len(b.Pending()) != 0 {
+		t.Fatal("non-interactive provider exposed a manual queue")
+	}
+	if reviewErr := b.Decide("missing", approval.Approved, approval.CommandScope, 1000); reviewErr == nil || reviewErr.Code != "review_unsupported" {
+		t.Fatalf("unexpected review error: %v", reviewErr)
+	}
+}
+
+func TestProviderCannotApproveAfterTurnEnds(t *testing.T) {
+	provider := delayedProvider{started: make(chan struct{}), release: make(chan struct{})}
+	b := NewWithProvider(config.Default(), provider)
+	b.alive = func(proc.Identity) bool { return true }
+	var executed atomic.Bool
+	b.execute = func(executor.Command, config.Config) executor.Result {
+		executed.Store(true)
+		return executor.Result{}
+	}
+	process := proc.Identity{PID: 11, UID: 12, StartTime: 13}
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionStarted, SessionID: "delayed"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "delayed"})
+	result := startRequest(b, process, "late")
+	<-provider.started
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnEnded, SessionID: "delayed"})
+	close(provider.release)
+
+	got := <-result
+	if got.err == nil || got.err.Code != approval.Cancelled {
+		t.Fatalf("unexpected result after turn ended: %+v, %v", got.value, got.err)
+	}
+	if executed.Load() {
+		t.Fatal("provider approval executed after its turn ended")
 	}
 }

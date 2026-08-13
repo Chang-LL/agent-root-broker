@@ -6,8 +6,9 @@
 把 `sudo`、Docker、LXD 或其他持久化提权路径直接交给 agent。所有提权请求默认拒绝，必须
 通过独立的 Unix socket 等待人工决策。
 
-首个集成目标是 Grok Build。代理本身不依赖特定 agent；新的集成只需上报会话/轮次生命周期
-事件，并通过 `hostctl sudo -- ...` 发起请求。
+首个集成目标是 Grok Build。agent hooks 在进入 broker 前先由 adapter 规范化，审批行为则
+通过独立的决策 provider interface 选择。它们在 Alpha 版本中是内部 Go 扩展点，还不是稳定
+或支持动态加载的插件 API。
 
 > **Alpha：** 请先在测试主机上使用。人工批准的任意 root 命令，仍然是任意 root 命令。
 > 本项目减少的是无人值守提权，而不是错误人工审批可能造成的后果。
@@ -17,17 +18,13 @@
 ## 工作原理
 
 ```text
-非特权 Grok 进程
-  ├─ 生命周期 hooks ───────────┐
-  └─ hostctl sudo -- argv ─────┼─> /run/hostctl/request.sock
-                               │             │
-另一个 SSH/tmux 窗格中的人工审批者 └─ hostctl-admin watch
-                                      │
-                                      └────> /run/hostctl/admin.sock
-                                                   │
-                                             root hostctld
-                                                   │
-                                             exec(argv)，不经过 shell
+Grok hook payload ─> Grok adapter ─> 规范化 lifecycle ─┐
+agent: hostctl sudo -- argv ─> 规范化命令请求 ─────────┼─> broker
+                                                       │      │
+人工审批者 ─> 管理 Unix socket ─> ManualProvider.Reviewer ┘      │
+                                                    Provider.Decide()
+                                                             │
+                                                     lease + exec(argv)
 ```
 
 请求 socket 只允许专用 agent 账户访问，管理 socket 只允许审批组访问。`hostctld` 还会验证
@@ -38,6 +35,23 @@ hooks 上报的活动轮次。请求进程的祖先进程必须是配置中指�
 Hooks 可以提高生命周期判断的准确度，也会教 Grok 使用这套流程；但 Grok 中的 hooks 是
 fail-open 的，因此它们**不是**安全边界。真正的边界是专用 OS 用户、socket 权限、对端凭据
 校验以及代理默认拒绝的状态机。
+
+### 扩展边界
+
+运行时现在有两个明确的扩展缝：
+
+- `agent.HookAdapter` 把厂商 hook 字段转换为四种规范化生命周期事件，并提取 shell 命令供
+  集成侧 guardrail 检查。Grok 字段只存在于 `internal/integrations/grok`，server 和 broker
+  都不会解析它们。
+- `approval.Provider` 通过 `Decide(ctx, request)` 接收规范化请求。随项目提供的
+  `ManualProvider` 会等待人工决定，并实现管理 socket 使用的可选 `Reviewer` interface；非
+  交互 provider 不必暴露审批队列。无论使用哪种 provider，broker 都会校验返回结果、记录
+  provider/principal 身份，并继续负责 lease 和命令执行。
+
+目前安装器、launcher、托管 hook 资源和多调用 hook 名称仍是 Grok 专用的，provider 也只能
+在编译时选择。Unix socket 仍是唯一已实现的传输。拆分安装 profile、让传输可替换，以及决定
+是否稳定公开插件 API，仍属于路线图工作。新增 provider 或传输必须显式启用、可审计，并声明
+自己的信任模型，不能静默继承默认本地人工模式的安全结论。
 
 ## 审批范围
 

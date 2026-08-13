@@ -2,19 +2,22 @@
 
 ## Security model
 
+This section describes the shipped `ManualProvider` over local Unix sockets. The provider interface
+is an extension boundary, not a claim that other decision sources have an equivalent trust model.
+
 `hostctl` assumes:
 
 - the AI agent and anything it launches may be malicious;
 - the dedicated agent user has no other route to host privilege;
-- the root-owned broker, installed Grok binary, launcher, configuration, and executable search path
-  cannot be modified by the agent;
+- the root-owned broker, installed agent binary (currently Grok), launcher, configuration, and
+  executable search path cannot be modified by the agent;
 - the human approver account and kernel are trusted;
 - the human reads the displayed command before approving it.
 
 The request and admin sockets use separate Unix groups. The daemon verifies `SO_PEERCRED` instead
 of trusting claimed identities in JSON. Agent requests must descend from the exact configured
-root-owned Grok executable, then match an active hook-reported turn. Approval state is memory-only
-and bound to the process start time so PID reuse does not inherit a lease.
+root-owned configured agent executable, then match an active adapter-reported turn. Approval state
+is memory-only and bound to the process start time so PID reuse does not inherit a lease.
 
 Commands are resolved through a fixed PATH, require a root-owned non-writable executable and protected
 parent directory chain by default, and execute as an argv array with a fixed environment, closed stdin,
@@ -30,6 +33,11 @@ while process binding and TTLs constrain stale broad approvals.
 Approval does not freeze the filesystem. For example, an approved interpreter may load mutable code,
 or an approved package manager may execute package hooks. The reviewer UI flags common interpreters,
 but it cannot make an arbitrary command safe.
+
+A custom decision provider is trusted to authorize arbitrary root execution. The broker validates
+the decision shape, binds it to a still-active turn, records the provider and principal, and retains
+lease/execution control; it cannot determine whether the provider's policy was wise. Any non-default
+provider needs its own authentication, failure-mode, audit, and threat-model review.
 
 Do not expose either Unix socket through TCP, a container bind mount, or a group shared with unrelated
 users. Do not run Grok in the approver account if the goal is isolation.
