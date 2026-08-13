@@ -1,3 +1,5 @@
+**English** | [简体中文](ROADMAP.zh-CN.md)
+
 # Roadmap
 
 `hostctl` is alpha software that places a root daemon between an untrusted local AI agent and the

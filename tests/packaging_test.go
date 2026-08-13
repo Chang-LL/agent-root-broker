@@ -84,3 +84,36 @@ func TestApproverHomeAccessIsExplicitAndACLBased(t *testing.T) {
 		}
 	}
 }
+
+func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
+	readmeEnglish := projectFile(t, "README.md")
+	readmeChinese := projectFile(t, "README.zh-CN.md")
+	roadmapEnglish := projectFile(t, "ROADMAP.md")
+	roadmapChinese := projectFile(t, "ROADMAP.zh-CN.md")
+	release := projectFile(t, ".github", "workflows", "release.yml")
+
+	for name, item := range map[string]struct {
+		document  string
+		alternate string
+	}{
+		"README.md":        {readmeEnglish, "README.zh-CN.md"},
+		"README.zh-CN.md":  {readmeChinese, "README.md"},
+		"ROADMAP.md":       {roadmapEnglish, "ROADMAP.zh-CN.md"},
+		"ROADMAP.zh-CN.md": {roadmapChinese, "ROADMAP.md"},
+	} {
+		firstLine := strings.SplitN(item.document, "\n", 2)[0]
+		if !strings.Contains(firstLine, "]("+item.alternate+")") {
+			t.Fatalf("%s is missing its alternate language link", name)
+		}
+	}
+
+	for _, filename := range []string{"README.md", "README.zh-CN.md", "ROADMAP.md", "ROADMAP.zh-CN.md"} {
+		if !strings.Contains(release, filename) {
+			t.Fatalf("release archive omits %s", filename)
+		}
+	}
+	if strings.Count(roadmapEnglish, "- [x]") != strings.Count(roadmapChinese, "- [x]") ||
+		strings.Count(roadmapEnglish, "- [ ]") != strings.Count(roadmapChinese, "- [ ]") {
+		t.Fatal("English and Chinese roadmap checklist states are out of sync")
+	}
+}

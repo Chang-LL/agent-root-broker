@@ -1,3 +1,5 @@
+**English** | [简体中文](README.zh-CN.md)
+
 # hostctl
 
 `hostctl` is a small Linux broker for letting a local AI agent request arbitrary root commands
