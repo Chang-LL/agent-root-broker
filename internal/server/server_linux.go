@@ -135,20 +135,20 @@ func openSocket(path, groupName string) (*net.UnixListener, error) {
 	}
 	group, err := user.LookupGroup(groupName)
 	if err != nil {
-		result.Close()
+		_ = result.Close()
 		return nil, fmt.Errorf("lookup group %s: %w", groupName, err)
 	}
 	gid, err := strconv.Atoi(group.Gid)
 	if err != nil {
-		result.Close()
+		_ = result.Close()
 		return nil, fmt.Errorf("parse group ID %s: %w", group.Gid, err)
 	}
 	if err := os.Chown(path, os.Geteuid(), gid); err != nil {
-		result.Close()
+		_ = result.Close()
 		return nil, fmt.Errorf("own socket %s: %w", path, err)
 	}
 	if err := os.Chmod(path, 0o660); err != nil {
-		result.Close()
+		_ = result.Close()
 		return nil, fmt.Errorf("set socket mode %s: %w", path, err)
 	}
 	return result, nil
@@ -166,7 +166,7 @@ func removeStaleSocket(path string) error {
 		return fmt.Errorf("refusing to remove non-socket path: %s", path)
 	}
 	if connection, dialErr := net.DialTimeout("unix", path, 150_000_000); dialErr == nil {
-		connection.Close()
+		_ = connection.Close()
 		return fmt.Errorf("another daemon is listening on %s", path)
 	}
 	if err := os.Remove(path); err != nil {
@@ -194,7 +194,7 @@ func (s *listener) serve() error {
 }
 
 func (s *listener) handle(connection *net.UnixConn) {
-	defer connection.Close()
+	defer func() { _ = connection.Close() }()
 	pid, uid, _, err := peerCredentials(connection)
 	if err != nil {
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "unauthorized", Message: err.Error()}})

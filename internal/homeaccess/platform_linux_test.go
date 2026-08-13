@@ -64,7 +64,7 @@ func TestPlatformGrantStatusRevoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer syscall.Close(fd)
+	defer func() { _ = syscall.Close(fd) }()
 	if _, present, err := readACL(fd, defaultACLName); err != nil || present {
 		t.Fatalf("hostctl-created default ACL remains: present=%v err=%v", present, err)
 	}
@@ -76,7 +76,7 @@ func assertACLUser(t *testing.T, path string, uid uint32, permission uint16, wan
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer syscall.Close(fd)
+	defer func() { _ = syscall.Close(fd) }()
 	value, present, err := readACL(fd, accessACLName)
 	if err != nil {
 		t.Fatal(err)

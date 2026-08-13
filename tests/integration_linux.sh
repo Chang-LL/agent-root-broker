@@ -3,7 +3,7 @@ set -eu
 
 [ "$(uname -s)" = Linux ] || { echo "SKIP: Linux required"; exit 0; }
 
-PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 TEST_DIR=$(mktemp -d /tmp/hostctl-go-integration.XXXXXX)
 DAEMON_PID=
 AGENT_PID=

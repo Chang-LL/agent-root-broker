@@ -1,11 +1,12 @@
 #!/bin/sh
 set -eu
 
-PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 AGENT_USER=grok-agent
 APPROVER_USER=
 GROK_BIN=
 HOSTCTL_BIN=
+HOSTCTL_SOURCE=
 TMP_DIR=
 ALLOW_APPROVER_HOME_RW=0
 
@@ -67,29 +68,40 @@ GROK_BIN=$(/usr/bin/readlink -f -- "$GROK_BIN")
 TMP_DIR=$(/usr/bin/mktemp -d)
 trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
 
-if [ -z "$HOSTCTL_BIN" ]; then
-  case "$(uname -m)" in
-    x86_64|amd64) RELEASE_ARCH=amd64 ;;
-    aarch64|arm64) RELEASE_ARCH=arm64 ;;
-    *) echo "unsupported architecture: $(uname -m)" >&2; exit 2 ;;
-  esac
-  if [ -x "$PROJECT_DIR/hostctl" ] && [ -f "$PROJECT_DIR/hostctl" ]; then
-    HOSTCTL_BIN="$PROJECT_DIR/hostctl"
-  elif [ -x "$PROJECT_DIR/dist/hostctl-linux-$RELEASE_ARCH" ]; then
-    HOSTCTL_BIN="$PROJECT_DIR/dist/hostctl-linux-$RELEASE_ARCH"
-  elif [ -f "$PROJECT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+if [ -n "$HOSTCTL_BIN" ]; then
+  HOSTCTL_SOURCE="explicit --hostctl-bin"
+elif [ -f "$PROJECT_DIR/go.mod" ]; then
+  if command -v go >/dev/null 2>&1; then
     (
       cd "$PROJECT_DIR"
       CGO_ENABLED=0 go build -trimpath -o "$TMP_DIR/hostctl" ./cmd/hostctl
     )
     HOSTCTL_BIN="$TMP_DIR/hostctl"
+    HOSTCTL_SOURCE="source build from $PROJECT_DIR"
   else
-    echo "hostctl binary not found; use a release archive, populate dist/, or pass --hostctl-bin PATH" >&2
+    echo "source checkout detected but Go is unavailable; pass --hostctl-bin explicitly or use a release archive" >&2
     exit 2
   fi
+elif [ -x "$PROJECT_DIR/hostctl" ] && [ -f "$PROJECT_DIR/hostctl" ]; then
+  HOSTCTL_BIN="$PROJECT_DIR/hostctl"
+  HOSTCTL_SOURCE="release archive"
+else
+  echo "hostctl binary not found; use a release archive or pass --hostctl-bin PATH" >&2
+  exit 2
 fi
 [ -f "$HOSTCTL_BIN" ] && [ -x "$HOSTCTL_BIN" ] || { echo "hostctl binary is not an executable file" >&2; exit 2; }
-"$HOSTCTL_BIN" version >/dev/null || { echo "hostctl binary cannot run on this host" >&2; exit 2; }
+HOSTCTL_BIN=$(/usr/bin/readlink -f -- "$HOSTCTL_BIN")
+HOSTCTL_VERSION=$("$HOSTCTL_BIN" version) || { echo "hostctl binary cannot run on this host" >&2; exit 2; }
+case "$HOSTCTL_VERSION" in
+  "hostctl "*) ;;
+  *) echo "hostctl binary returned an invalid version" >&2; exit 2 ;;
+esac
+HOSTCTL_SHA256=$(/usr/bin/sha256sum "$HOSTCTL_BIN" | /usr/bin/cut -d' ' -f1)
+echo "Selected hostctl: $HOSTCTL_SOURCE"
+echo "  binary: $HOSTCTL_BIN"
+echo "  version: $HOSTCTL_VERSION"
+echo "  host architecture: $(uname -m)"
+echo "  sha256: $HOSTCTL_SHA256"
 
 /usr/bin/getent group hostctl-agent >/dev/null || /usr/sbin/groupadd --system hostctl-agent
 /usr/bin/getent group hostctl-approver >/dev/null || /usr/sbin/groupadd --system hostctl-approver

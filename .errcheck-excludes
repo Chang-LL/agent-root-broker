@@ -1,0 +1,4 @@
+// CLI output errors do not replace the command's semantic exit status.
+fmt.Fprint(os.Stdout)
+fmt.Fprintf(os.Stdout)
+fmt.Fprintln(os.Stdout)

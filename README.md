@@ -11,6 +11,8 @@ only needs to report session/turn lifecycle events and invoke `hostctl sudo -- .
 > arbitrary root command. The design reduces unattended privilege, not the consequences of a bad
 > human approval.
 
+Release gates and planned hardening work are tracked in [ROADMAP.md](ROADMAP.md).
+
 ## How it works
 
 ```text
@@ -227,6 +229,21 @@ make vet
 make snapshot VERSION=dev
 # Linux only; exercises SO_PEERCRED and real Unix sockets:
 make integration
+```
+
+The required quality gate also uses pinned versions of `deadcode`, `staticcheck`, `errcheck`,
+`shellcheck`, and `actionlint`. After installing those tools, run:
+
+```sh
+make lint
+```
+
+`deadcode` is evaluated for the supported Linux build and must produce no output. The privileged
+installer test changes users, groups, sudoers, systemd units, and `/usr/local` files, so it refuses
+to run without an explicit mutation guard and should only be used in a disposable Linux machine:
+
+```sh
+sudo make system-test
 ```
 
 The daemon is Linux-only because it treats kernel-supplied peer PID/UID/GID as part of its security

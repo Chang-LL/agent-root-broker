@@ -59,7 +59,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("open configuration: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	cfg := Default()
 	decoder := json.NewDecoder(f)
 	decoder.DisallowUnknownFields()

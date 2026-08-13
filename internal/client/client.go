@@ -15,7 +15,7 @@ func Call(socketPath string, payload any, response any) error {
 	if err != nil {
 		return fmt.Errorf("cannot reach hostctl broker at %s: %w", socketPath, err)
 	}
-	defer connection.Close()
+	defer func() { _ = connection.Close() }()
 	if err := json.NewEncoder(connection).Encode(payload); err != nil {
 		return fmt.Errorf("send broker request: %w", err)
 	}

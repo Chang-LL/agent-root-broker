@@ -22,10 +22,10 @@ func platformManage(action, home string, uid uint32) (string, error) {
 		return "", fmt.Errorf("open home directory safely: %w", err)
 	}
 	if action == "status" {
-		defer syscall.Close(fd)
+		defer func() { _ = syscall.Close(fd) }()
 		return aclStatus(fd, uid)
 	}
-	defer syscall.Close(fd)
+	defer func() { _ = syscall.Close(fd) }()
 	var stat syscall.Stat_t
 	if err := syscall.Fstat(fd, &stat); err != nil {
 		return "", fmt.Errorf("inspect home filesystem: %w", err)
@@ -59,10 +59,10 @@ func platformManage(action, home string, uid uint32) (string, error) {
 func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
 	file := os.NewFile(uintptr(fd), "hostctl-home")
 	if file == nil {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 		return fmt.Errorf("open home directory file descriptor")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	var stat syscall.Stat_t
 	if err := syscall.Fstat(fd, &stat); err != nil {
 		return err
@@ -91,12 +91,12 @@ func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
 		}
 		var childStat syscall.Stat_t
 		if err := syscall.Fstat(child, &childStat); err != nil {
-			syscall.Close(child)
+			_ = syscall.Close(child)
 			return err
 		}
 		kind := childStat.Mode & syscall.S_IFMT
 		if uint64(childStat.Dev) != rootDevice || (kind != syscall.S_IFDIR && kind != syscall.S_IFREG) {
-			syscall.Close(child)
+			_ = syscall.Close(child)
 			continue
 		}
 		if err := walkFD(child, rootDevice, action, uid); err != nil {

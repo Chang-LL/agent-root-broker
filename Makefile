@@ -4,7 +4,7 @@ GOPATH ?= /tmp/hostctl-go-path
 GO_ENV = GOCACHE=$(GOCACHE) GOPATH=$(GOPATH)
 LDFLAGS = -s -w -X main.version=$(VERSION)
 
-.PHONY: all build test test-race vet integration snapshot clean
+.PHONY: all build test test-race vet lint deadcode integration system-test snapshot clean
 
 all: build
 
@@ -20,8 +20,25 @@ test-race:
 vet:
 	$(GO_ENV) go vet ./...
 
+lint:
+	test -z "$$(gofmt -l cmd internal tests)"
+	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 staticcheck ./...
+	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 errcheck -exclude .errcheck-excludes ./...
+	shellcheck install.sh packaging/bin/grok-agent-launch packaging/bin/grok-safe.in tests/*.sh
+	actionlint
+	$(MAKE) deadcode
+
+deadcode:
+	@output="$$( $(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 deadcode ./... )"; \
+	if [ -n "$$output" ]; then printf '%s\n' "$$output"; exit 1; fi
+
 integration:
 	$(GO_ENV) ./tests/integration_linux.sh
+
+system-test:
+	HOSTCTL_SYSTEM_TEST_ALLOW_MUTATION=1 \
+	HOSTCTL_TEST_APPROVER_USER="$${SUDO_USER:-$${USER:-}}" \
+	./tests/install_system_linux.sh
 
 snapshot:
 	mkdir -p dist

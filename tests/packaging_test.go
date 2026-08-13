@@ -43,6 +43,19 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	if strings.Contains(installer, "src/hostctl") || strings.Contains(installer, "python") {
 		t.Fatal("installer still depends on the Python implementation")
 	}
+	if strings.Contains(installer, `dist/hostctl-linux-`) {
+		t.Fatal("source installer silently selects an ignored dist artifact")
+	}
+	for _, wanted := range []string{
+		"source checkout detected but Go is unavailable",
+		"explicit --hostctl-bin",
+		"Selected hostctl:",
+		"HOSTCTL_SHA256",
+	} {
+		if !strings.Contains(installer, wanted) {
+			t.Fatalf("installer provenance output is missing %q", wanted)
+		}
+	}
 }
 
 func TestApproverHomeAccessIsExplicitAndACLBased(t *testing.T) {
