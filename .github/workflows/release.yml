@@ -28,11 +28,10 @@ jobs:
           mkdir -p release
           for arch in amd64 arm64; do
             stage="release/hostctl_${VERSION}_linux_${arch}"
-            mkdir -p "$stage/packaging/bin" "$stage/packaging/config" "$stage/packaging/systemd"
+            mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
             cp install.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md SECURITY.md "$stage/"
-            cp -R grok "$stage/"
-            cp packaging/bin/grok-agent-launch packaging/bin/grok-safe.in "$stage/packaging/bin/"
+            cp -R profiles "$stage/"
             cp packaging/config/config.json.in "$stage/packaging/config/"
             cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"
             tar -C release -czf "release/hostctl_${VERSION}_linux_${arch}.tar.gz" "hostctl_${VERSION}_linux_${arch}"

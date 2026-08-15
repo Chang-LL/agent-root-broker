@@ -41,7 +41,7 @@ and broker's default-deny state are the boundary.
 
 ### Extension boundaries
 
-The runtime now has two explicit seams:
+The implementation now has three explicit seams:
 
 - `agent.HookAdapter` converts vendor hook fields into four normalized lifecycle events and extracts
   shell commands for integration-side guardrails. Grok fields exist only in
@@ -51,13 +51,17 @@ The runtime now has two explicit seams:
   the admin socket. A non-interactive provider does not need to expose a review queue. In every
   case, the broker validates the returned decision, records its provider/principal identity, and
   retains ownership of leases and execution.
+- The core installer owns host accounts/groups, the hostctl binary, daemon configuration, systemd,
+  and optional home ACLs. An allowlisted, versioned integration profile owns the agent executable,
+  launcher, hooks, managed assets, and profile-specific sudoers rule. Grok is the first profile in
+  `profiles/grok`.
 
-The installer, launcher, managed hook assets, and multicall hook name are still Grok-specific, and
-provider selection is currently compile-time. The Unix sockets are also the only implemented
-transport. Separating installation profiles, making transport replaceable, and deciding whether to
-stabilize a public plugin API remain roadmap work. Any added provider or transport must be opt-in,
+Agent adapters and decision providers are currently compile-time extension points, while installer
+profiles are root-executed shell code selected from a built-in allowlist. The Unix sockets remain the
+only implemented transport. Making transport replaceable and deciding whether to stabilize public
+extension APIs remain roadmap work. Any added profile, provider, or transport must be opt-in,
 auditable, and document its own trust model instead of silently inheriting the security claims of
-the default local-human mode.
+the default Grok/local-human mode.
 
 ## Approval scopes
 
@@ -85,23 +89,25 @@ packages.
 ## Install
 
 Download the archive for `linux_amd64` or `linux_arm64` from GitHub Releases, verify it against
-`checksums.txt`, extract it, and review `install.sh`. Then pass the real human account and existing
-Grok executable explicitly:
+`checksums.txt`, extract it, and review `install.sh` plus `profiles/grok/profile.sh`. Then select the
+Grok profile and pass the real human account and existing Grok executable explicitly:
 
 ```sh
 sudo ./install.sh \
+  --profile grok \
   --approver-user "$USER" \
-  --grok-bin /absolute/path/to/grok
+  --agent-bin /absolute/path/to/grok
 ```
+
+For upgrades, the previous `--grok-bin PATH` form remains a compatibility alias for
+`--profile grok --agent-bin PATH`.
 
 The installer:
 
 - creates locked-down `grok-agent`, `hostctl-agent`, and `hostctl-approver` identities/groups;
 - installs one statically linked Go binary and root-owned multicall links;
-- copies the supplied Grok binary to a root-owned location;
-- installs root-managed Grok hooks, rules, and the `hostctl-admin` skill;
-- grants approvers passwordless permission only to enter the unprivileged Grok account through a
-  fixed launcher;
+- invokes the allowlisted Grok profile to install the supplied agent binary, launcher, managed hooks,
+  rules, `hostctl-admin` skill, and narrowly scoped unprivileged-user sudoers rule;
 - enables `hostctld.service`.
 
 It does **not** give the agent account sudo rights. Do not add that account to `sudo`, `docker`,

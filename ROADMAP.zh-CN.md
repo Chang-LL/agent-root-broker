@@ -84,7 +84,7 @@
 
 - [x] 定义规范化生命周期事件和 agent adapter 契约，使厂商专用 hook payload 不进入核心
   broker。
-- [ ] 把主机核心安装与 agent 专用集成 profile 分开；在宣称支持其他 agent 之前，先把 Grok
+- [x] 把主机核心安装与 agent 专用集成 profile 分开；在宣称支持其他 agent 之前，先把 Grok
   迁移为第一个 profile。
 - [x] 定义决策 provider interface，把本地人工审批迁移到默认 manual provider，同时仍由
   broker 掌管 lease 和命令执行。

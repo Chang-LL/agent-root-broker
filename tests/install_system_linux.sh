@@ -84,13 +84,24 @@ GOCACHE="$BUILD_CACHE" CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -X main.
 GOCACHE="$BUILD_CACHE" CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -X main.version=system-new' -o "$NEW_BIN" "$PROJECT_DIR/cmd/hostctl"
 GOCACHE="$BUILD_CACHE" CGO_ENABLED=0 go build -trimpath -o "$FAKE_GROK" "$PROJECT_DIR/tests/systemagent"
 
+# Profile names are selected from the installer's built-in allowlist. Reject an
+# unknown profile before creating any hostctl system path.
+if "$PROJECT_DIR/install.sh" --profile unknown --approver-user "$APPROVER_USER" --agent-bin "$FAKE_GROK" --hostctl-bin "$OLD_BIN" >"$TEST_DIR/unknown-profile.log" 2>&1; then
+  fail "unknown integration profile was accepted"
+fi
+/bin/grep -q 'unsupported integration profile: unknown' "$TEST_DIR/unknown-profile.log" || {
+  /bin/cat "$TEST_DIR/unknown-profile.log"
+  fail "unknown profile failure was not explicit"
+}
+[ ! -e /etc/hostctl ] || fail "unknown profile changed the system"
+
 # A source checkout without Go must fail before making any system changes. In
 # particular, an ignored dist artifact must never be selected implicitly.
 NO_GO_PATH="$TEST_DIR/no-go-path"
 /bin/mkdir "$NO_GO_PATH"
 /bin/ln -s /usr/bin/dirname "$NO_GO_PATH/dirname"
 /bin/ln -s /usr/bin/id "$NO_GO_PATH/id"
-if PATH="$NO_GO_PATH" "$PROJECT_DIR/install.sh" --approver-user "$APPROVER_USER" --grok-bin "$FAKE_GROK" >"$TEST_DIR/no-go.log" 2>&1; then
+if PATH="$NO_GO_PATH" "$PROJECT_DIR/install.sh" --profile grok --approver-user "$APPROVER_USER" --agent-bin "$FAKE_GROK" >"$TEST_DIR/no-go.log" 2>&1; then
   fail "source checkout unexpectedly installed without Go"
 fi
 /bin/grep -q 'source checkout detected but Go is unavailable' "$TEST_DIR/no-go.log" || {
@@ -101,16 +112,16 @@ fi
 # Build the same layout users receive from a release archive, then exercise
 # its implicit, colocated binary selection.
 RELEASE_DIR="$TEST_DIR/release"
-/usr/bin/install -d "$RELEASE_DIR/packaging/bin" "$RELEASE_DIR/packaging/config" "$RELEASE_DIR/packaging/systemd"
+/usr/bin/install -d "$RELEASE_DIR/packaging/config" "$RELEASE_DIR/packaging/systemd"
 /usr/bin/install -m 0755 "$OLD_BIN" "$RELEASE_DIR/hostctl"
 /usr/bin/install -m 0755 "$PROJECT_DIR/install.sh" "$RELEASE_DIR/install.sh"
-/bin/cp -R "$PROJECT_DIR/grok" "$RELEASE_DIR/grok"
-/bin/cp "$PROJECT_DIR/packaging/bin/grok-agent-launch" "$PROJECT_DIR/packaging/bin/grok-safe.in" "$RELEASE_DIR/packaging/bin/"
+/bin/cp -R "$PROJECT_DIR/profiles" "$RELEASE_DIR/profiles"
 /bin/cp "$PROJECT_DIR/packaging/config/config.json.in" "$RELEASE_DIR/packaging/config/"
 /bin/cp "$PROJECT_DIR/packaging/systemd/hostctld.service" "$RELEASE_DIR/packaging/systemd/"
 
-"$RELEASE_DIR/install.sh" --approver-user "$APPROVER_USER" --grok-bin "$FAKE_GROK" >"$TEST_DIR/install-first.log"
+"$RELEASE_DIR/install.sh" --profile grok --approver-user "$APPROVER_USER" --agent-bin "$FAKE_GROK" >"$TEST_DIR/install-first.log"
 /bin/grep -q 'Selected hostctl: release archive' "$TEST_DIR/install-first.log"
+/bin/grep -q 'integration profile: grok' "$TEST_DIR/install-first.log"
 /bin/grep -q 'version: hostctl system-old' "$TEST_DIR/install-first.log"
 [ "$(/usr/local/bin/hostctl version)" = 'hostctl system-old' ] || fail "first install used the wrong binary"
 /usr/bin/systemctl is-active --quiet hostctld.service || fail "hostctld is not active"
@@ -121,11 +132,12 @@ RELEASE_DIR="$TEST_DIR/release"
 /usr/bin/id -nG "$APPROVER_USER" | /bin/grep -qw hostctl-approver || fail "approver lacks admin group"
 
 # Reinstallation must be idempotent and must not duplicate managed config.
+# Use the compatibility alias to ensure existing Grok upgrade commands remain valid.
 "$RELEASE_DIR/install.sh" --approver-user "$APPROVER_USER" --grok-bin "$FAKE_GROK" >"$TEST_DIR/install-repeat.log"
 [ "$(/bin/grep -c '# BEGIN hostctl managed hooks' /etc/grok/managed_config.toml)" -eq 1 ] || fail "managed Grok config was duplicated"
 
 # Upgrade using an explicit artifact and verify the selected provenance.
-"$PROJECT_DIR/install.sh" --approver-user "$APPROVER_USER" --grok-bin "$FAKE_GROK" --hostctl-bin "$NEW_BIN" >"$TEST_DIR/install-upgrade.log"
+"$PROJECT_DIR/install.sh" --profile grok --approver-user "$APPROVER_USER" --agent-bin "$FAKE_GROK" --hostctl-bin "$NEW_BIN" >"$TEST_DIR/install-upgrade.log"
 /bin/grep -q 'Selected hostctl: explicit --hostctl-bin' "$TEST_DIR/install-upgrade.log"
 /bin/grep -q 'version: hostctl system-new' "$TEST_DIR/install-upgrade.log"
 [ "$(/usr/local/bin/hostctl version)" = 'hostctl system-new' ] || fail "upgrade used the wrong binary"

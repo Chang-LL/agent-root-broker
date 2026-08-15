@@ -2,20 +2,28 @@
 set -eu
 
 PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-AGENT_USER=grok-agent
+PROFILE=grok
+PROFILE_DIR=
+AGENT_USER=
 APPROVER_USER=
-GROK_BIN=
+AGENT_BIN=
 HOSTCTL_BIN=
 HOSTCTL_SOURCE=
 TMP_DIR=
 ALLOW_APPROVER_HOME_RW=0
 
 usage() {
-  echo "Usage: sudo ./install.sh --approver-user USER --grok-bin PATH [--agent-user USER] [--hostctl-bin PATH] [--allow-approver-home-rw]" >&2
+  echo "Usage: sudo ./install.sh --profile PROFILE --approver-user USER --agent-bin PATH [--agent-user USER] [--hostctl-bin PATH] [--allow-approver-home-rw]" >&2
+  echo "       sudo ./install.sh --approver-user USER --grok-bin PATH [...]  # Grok compatibility alias" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --profile)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      PROFILE=$2
+      shift 2
+      ;;
     --agent-user)
       [ "$#" -ge 2 ] || { usage; exit 2; }
       AGENT_USER=$2
@@ -26,9 +34,16 @@ while [ "$#" -gt 0 ]; do
       APPROVER_USER=$2
       shift 2
       ;;
+    --agent-bin)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      [ -z "$AGENT_BIN" ] || { echo "agent binary was specified more than once" >&2; exit 2; }
+      AGENT_BIN=$2
+      shift 2
+      ;;
     --grok-bin)
       [ "$#" -ge 2 ] || { usage; exit 2; }
-      GROK_BIN=$2
+      [ -z "$AGENT_BIN" ] || { echo "agent binary was specified more than once" >&2; exit 2; }
+      AGENT_BIN=$2
       shift 2
       ;;
     --hostctl-bin)
@@ -52,7 +67,34 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || { echo "install.sh must run as root" >&2; exit 1; }
-[ -n "$APPROVER_USER" ] && [ -n "$GROK_BIN" ] || { usage; exit 2; }
+
+case "$PROFILE" in
+  grok)
+    PROFILE_DIR="$PROJECT_DIR/profiles/grok"
+    ;;
+  *)
+    echo "unsupported integration profile: $PROFILE" >&2
+    exit 2
+    ;;
+esac
+PROFILE_SCRIPT="$PROFILE_DIR/profile.sh"
+[ -f "$PROFILE_SCRIPT" ] || { echo "integration profile is incomplete: $PROFILE_SCRIPT" >&2; exit 2; }
+# shellcheck source=profiles/grok/profile.sh
+. "$PROFILE_SCRIPT"
+[ "${PROFILE_CONTRACT_VERSION:-}" = 1 ] || { echo "unsupported profile contract for $PROFILE" >&2; exit 2; }
+for profile_function in profile_preflight profile_install profile_install_sudoers profile_print_next_steps; do
+  command -v "$profile_function" >/dev/null 2>&1 || {
+    echo "integration profile is missing function: $profile_function" >&2
+    exit 2
+  }
+done
+[ -n "${PROFILE_DISPLAY_NAME:-}" ] && [ -n "${PROFILE_DEFAULT_AGENT_USER:-}" ] && \
+  [ -n "${PROFILE_AGENT_EXECUTABLE:-}" ] && [ -n "${PROFILE_SUDOERS_FILE:-}" ] || {
+  echo "integration profile metadata is incomplete: $PROFILE" >&2
+  exit 2
+}
+[ -n "$AGENT_USER" ] || AGENT_USER=$PROFILE_DEFAULT_AGENT_USER
+[ -n "$APPROVER_USER" ] && [ -n "$AGENT_BIN" ] || { usage; exit 2; }
 
 valid_user() {
   printf '%s\n' "$1" | /bin/grep -Eq '^[a-z_][a-z0-9_-]*[$]?$'
@@ -60,10 +102,20 @@ valid_user() {
 
 valid_user "$AGENT_USER" || { echo "invalid agent user name" >&2; exit 2; }
 valid_user "$APPROVER_USER" || { echo "invalid approver user name" >&2; exit 2; }
+valid_user "$PROFILE_DEFAULT_AGENT_USER" || { echo "profile contains an invalid default agent user" >&2; exit 2; }
+printf '%s\n' "$PROFILE_SUDOERS_FILE" | /bin/grep -Eq '^[a-z0-9][a-z0-9_-]*$' || {
+  echo "profile contains an invalid sudoers file name" >&2
+  exit 2
+}
+case "$PROFILE_AGENT_EXECUTABLE" in
+  /*) ;;
+  *) echo "profile agent executable must be absolute" >&2; exit 2 ;;
+esac
 /usr/bin/getent passwd "$APPROVER_USER" >/dev/null || { echo "approver user does not exist" >&2; exit 2; }
 [ "$(/usr/bin/id -u "$APPROVER_USER")" -ne 0 ] || { echo "approver user must not be root" >&2; exit 2; }
-[ -f "$GROK_BIN" ] && [ -x "$GROK_BIN" ] || { echo "Grok binary is not an executable file" >&2; exit 2; }
-GROK_BIN=$(/usr/bin/readlink -f -- "$GROK_BIN")
+[ -f "$AGENT_BIN" ] && [ -x "$AGENT_BIN" ] || { echo "$PROFILE_DISPLAY_NAME binary is not an executable file" >&2; exit 2; }
+AGENT_BIN=$(/usr/bin/readlink -f -- "$AGENT_BIN")
+profile_preflight
 
 TMP_DIR=$(/usr/bin/mktemp -d)
 trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
@@ -98,6 +150,7 @@ case "$HOSTCTL_VERSION" in
 esac
 HOSTCTL_SHA256=$(/usr/bin/sha256sum "$HOSTCTL_BIN" | /usr/bin/cut -d' ' -f1)
 echo "Selected hostctl: $HOSTCTL_SOURCE"
+echo "  integration profile: $PROFILE"
 echo "  binary: $HOSTCTL_BIN"
 echo "  version: $HOSTCTL_VERSION"
 echo "  host architecture: $(uname -m)"
@@ -121,50 +174,13 @@ fi
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
-/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/libexec/hostctl-grok-hook
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/packaging/bin/grok-agent-launch" /usr/local/libexec/grok-agent-launch
-/usr/bin/install -o root -g root -m 0755 "$GROK_BIN" /usr/local/libexec/grok-hostctl-bin
+profile_install "$AGENT_BIN" "$AGENT_USER" "$TMP_DIR"
 
-/bin/sed "s/@AGENT_USER@/$AGENT_USER/g; s/@APPROVER_USER@/$APPROVER_USER/g" \
+/bin/sed "s|@AGENT_USER@|$AGENT_USER|g; s|@APPROVER_USER@|$APPROVER_USER|g; s|@AGENT_EXECUTABLE@|$PROFILE_AGENT_EXECUTABLE|g" \
   "$PROJECT_DIR/packaging/config/config.json.in" >"$TMP_DIR/config.json"
-/bin/sed "s/@AGENT_USER@/$AGENT_USER/g" "$PROJECT_DIR/packaging/bin/grok-safe.in" >"$TMP_DIR/grok-safe"
 /usr/bin/install -d -o root -g root -m 0755 /etc/hostctl
 /usr/bin/install -o root -g root -m 0644 "$TMP_DIR/config.json" /etc/hostctl/config.json
-/usr/bin/install -o root -g root -m 0755 "$TMP_DIR/grok-safe" /usr/local/bin/grok-safe
-
-/usr/bin/install -d -o root -g root -m 0755 /usr/local/share/hostctl/grok
-/usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/grok/rules/hostctl.md" /usr/local/share/hostctl/grok/hostctl.md
-/bin/cp -R "$PROJECT_DIR/grok/skills/hostctl-admin" /usr/local/share/hostctl/grok/
-/bin/chown -R root:root /usr/local/share/hostctl/grok/hostctl-admin
-/bin/chmod -R go-w /usr/local/share/hostctl/grok/hostctl-admin
-
-AGENT_HOME=$(/usr/bin/getent passwd "$AGENT_USER" | /usr/bin/cut -d: -f6)
-/usr/bin/install -d -o "$AGENT_USER" -g "$AGENT_USER" -m 0700 "$AGENT_HOME/.grok"
-/usr/bin/install -d -o root -g root -m 0755 "$AGENT_HOME/.grok/hooks"
-/usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/grok/hooks/hostctl.json" "$AGENT_HOME/.grok/hooks/hostctl.json"
-/usr/bin/install -d -o "$AGENT_USER" -g "$AGENT_USER" -m 0755 "$AGENT_HOME/.grok/skills"
-if [ -e "$AGENT_HOME/.grok/skills/hostctl-admin" ] && [ ! -L "$AGENT_HOME/.grok/skills/hostctl-admin" ]; then
-  echo "refusing to replace existing $AGENT_HOME/.grok/skills/hostctl-admin" >&2
-  exit 1
-fi
-/bin/ln -sfn /usr/local/share/hostctl/grok/hostctl-admin "$AGENT_HOME/.grok/skills/hostctl-admin"
-
-/usr/bin/install -d -o root -g root -m 0755 /etc/grok
-if [ ! -e /etc/grok/managed_config.toml ]; then
-  /usr/bin/install -o root -g root -m 0644 /dev/null /etc/grok/managed_config.toml
-fi
-if ! /bin/grep -Fq '# BEGIN hostctl managed hooks' /etc/grok/managed_config.toml; then
-  printf '\n' >>/etc/grok/managed_config.toml
-  /bin/sed -n '1,$p' "$PROJECT_DIR/grok/managed-hooks.toml" >>/etc/grok/managed_config.toml
-fi
-/bin/chown root:root /etc/grok/managed_config.toml
-/bin/chmod 0644 /etc/grok/managed_config.toml
-
-{
-  echo "%hostctl-approver ALL=($AGENT_USER) NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *"
-} >"$TMP_DIR/hostctl-grok-agent"
-/usr/sbin/visudo -cf "$TMP_DIR/hostctl-grok-agent"
-/usr/bin/install -o root -g root -m 0440 "$TMP_DIR/hostctl-grok-agent" /etc/sudoers.d/hostctl-grok-agent
+profile_install_sudoers "$AGENT_USER" "$TMP_DIR"
 /usr/sbin/visudo -cf /etc/sudoers
 
 /usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/hostctld.service" /etc/systemd/system/hostctld.service
@@ -180,9 +196,9 @@ if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
 fi
 
 echo "hostctl installed: $(/usr/local/bin/hostctl version)"
+echo "Integration profile installed: $PROFILE"
 echo "Open a second terminal and run: hostctl-admin watch"
-echo "Launch the isolated Grok account with: grok-safe"
-echo "The Grok account may require its own one-time login. Do not copy another user's auth files."
+profile_print_next_steps
 if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
   echo "Home access enabled for $AGENT_USER. Revoke it with: hostctl-admin home-access revoke"
 fi

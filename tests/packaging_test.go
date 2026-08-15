@@ -18,7 +18,7 @@ func projectFile(t *testing.T, elements ...string) string {
 }
 
 func TestGrokSafePreservesOnlyProxyEnvironment(t *testing.T) {
-	wrapper := projectFile(t, "packaging", "bin", "grok-safe.in")
+	wrapper := projectFile(t, "profiles", "grok", "bin", "grok-safe.in")
 	if !strings.Contains(wrapper, "--preserve-env=HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,NO_PROXY") {
 		t.Fatal("proxy allowlist is missing")
 	}
@@ -31,10 +31,18 @@ func TestGrokSafePreservesOnlyProxyEnvironment(t *testing.T) {
 
 func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	installer := projectFile(t, "install.sh")
+	profile := projectFile(t, "profiles", "grok", "profile.sh")
 	for _, wanted := range []string{
 		"NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *",
-		"ALL=($AGENT_USER)",
+		"ALL=($profile_agent_user)",
+	} {
+		if !strings.Contains(profile, wanted) {
+			t.Fatalf("Grok profile is missing %q", wanted)
+		}
+	}
+	for _, wanted := range []string{
 		"/usr/local/libexec/hostctl-bin",
+		"profile_install_sudoers",
 	} {
 		if !strings.Contains(installer, wanted) {
 			t.Fatalf("installer is missing %q", wanted)
@@ -54,6 +62,42 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	} {
 		if !strings.Contains(installer, wanted) {
 			t.Fatalf("installer provenance output is missing %q", wanted)
+		}
+	}
+}
+
+func TestInstallerKeepsGrokDetailsBehindProfile(t *testing.T) {
+	installer := projectFile(t, "install.sh")
+	profile := projectFile(t, "profiles", "grok", "profile.sh")
+	configTemplate := projectFile(t, "packaging", "config", "config.json.in")
+	for _, detail := range []string{
+		"/etc/grok", "managed_config.toml", "hostctl-grok-hook", "grok-agent-launch", "grok-safe",
+	} {
+		if strings.Contains(installer, detail) {
+			t.Fatalf("Grok detail %q leaked into core installer", detail)
+		}
+		if !strings.Contains(profile, detail) {
+			t.Fatalf("Grok profile is missing detail %q", detail)
+		}
+	}
+	for _, wanted := range []string{
+		"PROFILE_CONTRACT_VERSION=1", "profile_preflight", "profile_install", "profile_install_sudoers",
+	} {
+		if !strings.Contains(profile, wanted) {
+			t.Fatalf("Grok profile contract is missing %q", wanted)
+		}
+	}
+	for _, wanted := range []string{"case \"$PROFILE\" in", "unsupported integration profile", "PROFILE_CONTRACT_VERSION"} {
+		if !strings.Contains(installer, wanted) {
+			t.Fatalf("core installer profile guard is missing %q", wanted)
+		}
+	}
+	if !strings.Contains(configTemplate, "@AGENT_EXECUTABLE@") || strings.Contains(configTemplate, "grok-hostctl-bin") {
+		t.Fatal("core configuration template still owns a Grok executable path")
+	}
+	for _, legacyPath := range [][]string{{"grok"}, {"packaging", "bin"}} {
+		if _, err := os.Stat(filepath.Join(append([]string{".."}, legacyPath...)...)); !os.IsNotExist(err) {
+			t.Fatalf("legacy integration path still exists: %s", filepath.Join(legacyPath...))
 		}
 	}
 }
@@ -91,6 +135,9 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	roadmapEnglish := projectFile(t, "ROADMAP.md")
 	roadmapChinese := projectFile(t, "ROADMAP.zh-CN.md")
 	release := projectFile(t, ".github", "workflows", "release.yml")
+	if !strings.Contains(release, "cp -R profiles") {
+		t.Fatal("release archive omits integration profiles")
+	}
 
 	for name, item := range map[string]struct {
 		document  string

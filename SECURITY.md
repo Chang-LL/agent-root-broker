@@ -5,6 +5,10 @@
 This section describes the shipped `ManualProvider` over local Unix sockets. The provider interface
 is an extension boundary, not a claim that other decision sources have an equivalent trust model.
 
+The root installer sources only built-in, allowlisted integration profiles. A profile executes with
+the same authority as `install.sh`; review both the core installer and selected profile before
+running either from a source checkout or release archive.
+
 `hostctl` assumes:
 
 - the AI agent and anything it launches may be malicious;
@@ -15,8 +19,8 @@ is an extension boundary, not a claim that other decision sources have an equiva
 - the human reads the displayed command before approving it.
 
 The request and admin sockets use separate Unix groups. The daemon verifies `SO_PEERCRED` instead
-of trusting claimed identities in JSON. Agent requests must descend from the exact configured
-root-owned configured agent executable, then match an active adapter-reported turn. Approval state
+of trusting claimed identities in JSON. Agent requests must descend from the exact configured,
+root-owned agent executable, then match an active adapter-reported turn. Approval state
 is memory-only and bound to the process start time so PID reuse does not inherit a lease.
 
 Commands are resolved through a fixed PATH, require a root-owned non-writable executable and protected

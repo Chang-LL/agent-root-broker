@@ -24,7 +24,7 @@ lint:
 	test -z "$$(gofmt -l cmd internal tests)"
 	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 staticcheck ./...
 	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 errcheck -exclude .errcheck-excludes ./...
-	shellcheck install.sh packaging/bin/grok-agent-launch packaging/bin/grok-safe.in tests/*.sh
+	shellcheck -x install.sh profiles/grok/bin/grok-agent-launch profiles/grok/bin/grok-safe.in tests/*.sh
 	actionlint
 	$(MAKE) deadcode
 

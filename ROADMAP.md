@@ -102,7 +102,7 @@ After the first public alpha, prioritize field evidence over adding broad policy
 
 - [x] Define normalized lifecycle events and an agent-adapter contract so vendor hook payloads do
   not enter the core broker.
-- [ ] Separate core host installation from agent-specific integration profiles; migrate Grok to the
+- [x] Separate core host installation from agent-specific integration profiles; migrate Grok to the
   first profile before claiming support for another agent.
 - [x] Define a decision-provider interface and migrate local human review to the default manual
   provider while keeping leases and execution in the broker.

@@ -6,7 +6,7 @@
   "admin_group": "hostctl-approver",
   "agent_users": ["@AGENT_USER@"],
   "approver_users": ["@APPROVER_USER@"],
-  "agent_executables": ["/usr/local/libexec/grok-hostctl-bin"],
+  "agent_executables": ["@AGENT_EXECUTABLE@"],
   "allowed_cwd_roots": ["/"],
   "clean_path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
   "default_timeout_seconds": 300,
