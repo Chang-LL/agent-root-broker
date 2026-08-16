@@ -7,22 +7,35 @@ set -eu
 PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 TEST_DIR=$(mktemp -d /tmp/rootbroker-deb-test.XXXXXX)
 PACKAGE_INSTALLED=0
-CONFIG_MARKER_CREATED=0
+ROOTBROKER_CONFIGURED=0
+APPROVER_USER=rootbroker-pkg-approver
+APPROVER_CREATED=0
 cleanup() {
-  if [ "$CONFIG_MARKER_CREATED" -eq 1 ]; then
-    rm -f -- /var/lib/rootbroker/install-state
-    rmdir /var/lib/rootbroker 2>/dev/null || true
+  if [ "$ROOTBROKER_CONFIGURED" -eq 1 ] && [ -x /usr/local/sbin/rootbroker-uninstall ]; then
+    /usr/local/sbin/rootbroker-uninstall --purge-agent-account >/dev/null 2>&1 || true
   fi
   if [ "$PACKAGE_INSTALLED" -eq 1 ]; then
     dpkg --purge rootbroker >/dev/null 2>&1 || true
   fi
+  if [ "$APPROVER_CREATED" -eq 1 ]; then
+    userdel -r "$APPROVER_USER" >/dev/null 2>&1 || true
+  fi
+  rm -rf -- /home/grok-agent
   rm -rf -- "$TEST_DIR"
 }
 trap cleanup EXIT HUP INT TERM
 
+! getent passwd "$APPROVER_USER" >/dev/null || { echo "test approver already exists" >&2; exit 1; }
+! getent passwd grok-agent >/dev/null || { echo "test agent already exists" >&2; exit 1; }
+useradd --create-home --shell /bin/sh "$APPROVER_USER"
+APPROVER_CREATED=1
+
 BINARY="$TEST_DIR/rootbroker"
+FAKE_GROK="$TEST_DIR/grok-system-agent"
 GOCACHE="$TEST_DIR/go-cache" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go build -trimpath -ldflags '-s -w -X main.version=v0.1.0-alpha.1' -o "$BINARY" "$PROJECT_DIR/cmd/rootbroker"
+GOCACHE="$TEST_DIR/go-cache" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -o "$FAKE_GROK" "$PROJECT_DIR/tests/systemagent"
 mkdir "$TEST_DIR/first" "$TEST_DIR/second"
 SOURCE_DATE_EPOCH=1700000000 "$PROJECT_DIR/scripts/build-deb.sh" \
   v0.1.0-alpha.1 amd64 "$BINARY" "$TEST_DIR/first"
@@ -38,21 +51,28 @@ dpkg -i "$PACKAGE"
 PACKAGE_INSTALLED=1
 [ "$(/usr/bin/rootbroker version)" = 'rootbroker v0.1.0-alpha.1' ]
 /usr/sbin/rootbroker-setup --help >/dev/null
+/usr/sbin/rootbroker-setup \
+  --profile grok \
+  --approver-user "$APPROVER_USER" \
+  --agent-bin "$FAKE_GROK" >"$TEST_DIR/setup.log"
+ROOTBROKER_CONFIGURED=1
+systemctl is-active --quiet rootbrokerd.service
+[ "$(/usr/local/bin/rootbroker version)" = 'rootbroker v0.1.0-alpha.1' ]
+/usr/bin/rootbroker --json doctor | /bin/grep -q '"socketIsUnix":true'
 
-mkdir -p /var/lib/rootbroker
-: >/var/lib/rootbroker/install-state
-CONFIG_MARKER_CREATED=1
 if dpkg --remove rootbroker >"$TEST_DIR/remove-configured.log" 2>&1; then
   echo "configured package removal unexpectedly succeeded" >&2
   exit 1
 fi
 /bin/grep -q 'Run sudo rootbroker-uninstall' "$TEST_DIR/remove-configured.log"
-rm -f -- /var/lib/rootbroker/install-state
-rmdir /var/lib/rootbroker
-CONFIG_MARKER_CREATED=0
+/usr/local/sbin/rootbroker-uninstall --purge-agent-account >"$TEST_DIR/uninstall.log"
+ROOTBROKER_CONFIGURED=0
+[ -d /home/grok-agent ]
 dpkg --purge rootbroker
 PACKAGE_INSTALLED=0
 [ ! -e /usr/bin/rootbroker ]
+userdel -r "$APPROVER_USER"
+APPROVER_CREATED=0
 
 CHECKSUM=$(sha256sum "$BINARY" | /usr/bin/awk '{print $1}')
 "$PROJECT_DIR/scripts/render-homebrew-formula.sh" v0.1.0-alpha.1 \
