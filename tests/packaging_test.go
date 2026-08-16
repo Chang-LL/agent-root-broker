@@ -184,6 +184,11 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(release, "uninstall.sh") {
 		t.Fatal("release archive omits uninstaller")
 	}
+	for _, wanted := range []string{"scripts/build-deb.sh", "scripts/render-homebrew-formula.sh", "release/*.deb", "release/rootbroker.rb"} {
+		if !strings.Contains(release, wanted) {
+			t.Fatalf("release workflow is missing package artifact behavior %q", wanted)
+		}
+	}
 	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
 		!strings.Contains(release, `git status --porcelain`) {
 		t.Fatal("release build does not keep generated files outside the source tree")

@@ -97,6 +97,30 @@ sudo ./install.sh \
   --agent-bin /absolute/path/to/grok
 ```
 
+GitHub Release 同时提供可由 apt 安装的 `.deb`。安装软件包时不会自动创建账户或启动 root
+服务；之后仍需显式配置：
+
+```sh
+sudo apt install ./rootbroker_VERSION_ARCH.deb
+sudo rootbroker-setup \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+Linuxbrew tap 使用同样的两阶段方式：
+
+```sh
+brew install Chang-LL/tap/rootbroker
+sudo "$(brew --prefix)/bin/rootbroker-setup" \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+两种包管理方式都会安装可审阅的 setup 资产，并要求与压缩包相同的显式人工配置。软件包升级
+不会静默重启 root daemon；审阅升级后请重新运行 `rootbroker-setup`。
+
 为了兼容升级，原来的 `--grok-bin PATH` 仍作为
 `--profile grok --agent-bin PATH` 的别名保留。
 

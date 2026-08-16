@@ -46,6 +46,7 @@ jobs:
             exit 2
           }
           release_root="$RUNNER_TEMP/rootbroker-release"
+          source_date_epoch=$(git log -1 --format=%ct)
           mkdir -p "$release_root"
           for arch in amd64 arm64; do
             stage="$release_root/rootbroker_${VERSION}_linux_${arch}"
@@ -59,10 +60,20 @@ jobs:
             cp packaging/config/config.json.in "$stage/packaging/config/"
             cp packaging/systemd/rootbrokerd.service "$stage/packaging/systemd/"
             tar -C "$release_root" -czf "$release_root/rootbroker_${VERSION}_linux_${arch}.tar.gz" "rootbroker_${VERSION}_linux_${arch}"
+            SOURCE_DATE_EPOCH="$source_date_epoch" scripts/build-deb.sh "$VERSION" "$arch" "$stage/rootbroker" "$release_root"
             rm -rf -- "$stage"
           done
+          amd64_archive="rootbroker_${VERSION}_linux_amd64.tar.gz"
+          arm64_archive="rootbroker_${VERSION}_linux_arm64.tar.gz"
+          amd64_sha=$(sha256sum "$release_root/$amd64_archive" | cut -d' ' -f1)
+          arm64_sha=$(sha256sum "$release_root/$arm64_archive" | cut -d' ' -f1)
+          release_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${VERSION}"
+          scripts/render-homebrew-formula.sh "$VERSION" \
+            "$release_url/$amd64_archive" "$amd64_sha" \
+            "$release_url/$arm64_archive" "$arm64_sha" \
+            "$release_root/rootbroker.rb"
           cd "$release_root"
-          sha256sum ./*.tar.gz > checksums.txt
+          sha256sum ./*.tar.gz ./*.deb ./rootbroker.rb > checksums.txt
           cd "$GITHUB_WORKSPACE"
           test -z "$(git status --porcelain)" || {
             echo "release generation modified the source tree" >&2
@@ -70,13 +81,16 @@ jobs:
             exit 1
           }
           mkdir -p release
-          cp "$release_root"/*.tar.gz "$release_root/checksums.txt" release/
+          cp "$release_root"/*.tar.gz "$release_root"/*.deb \
+            "$release_root/rootbroker.rb" "$release_root/checksums.txt" release/
       - name: Attest release archives and checksums
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             release/*.tar.gz
+            release/*.deb
+            release/rootbroker.rb
             release/checksums.txt
       - name: Upload dry-run release
         if: github.ref_type != 'tag'
@@ -89,4 +103,4 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/checksums.txt --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/*.deb release/rootbroker.rb release/checksums.txt --generate-notes --verify-tag

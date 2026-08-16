@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+if [ "${1:-}" = configure ]; then
+  echo "rootbroker package installed but not configured."
+  echo "Review the documentation, then run: sudo rootbroker-setup --profile grok --approver-user USER --agent-bin PATH"
+fi
+
+exit 0

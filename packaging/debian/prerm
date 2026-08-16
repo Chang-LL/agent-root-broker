@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+case "${1:-}" in
+  remove|deconfigure)
+    if [ -f /var/lib/rootbroker/install-state ]; then
+      echo "rootbroker is still configured on this host." >&2
+      echo "Run sudo rootbroker-uninstall before removing the package." >&2
+      exit 1
+    fi
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,44 @@
+class Rootbroker < Formula
+  desc "Human-approved root command broker for local AI agents"
+  homepage "https://github.com/Chang-LL/rootbroker"
+  version "@VERSION@"
+  license "MIT"
+
+  depends_on :linux
+
+  on_intel do
+    url "@AMD64_URL@"
+    sha256 "@AMD64_SHA256@"
+  end
+
+  on_arm do
+    url "@ARM64_URL@"
+    sha256 "@ARM64_SHA256@"
+  end
+
+  def install
+    libexec.install Dir["*"]
+    bin.install_symlink libexec/"rootbroker"
+    (bin/"rootbroker-admin").write <<~SH
+      #!/bin/sh
+      exec "#{libexec}/rootbroker" rootbroker-admin "$@"
+    SH
+    (bin/"rootbroker-admin").chmod 0755
+    (bin/"rootbroker-setup").write <<~SH
+      #!/bin/sh
+      exec "#{libexec}/install.sh" --rootbroker-bin "#{libexec}/rootbroker" "$@"
+    SH
+    (bin/"rootbroker-setup").chmod 0755
+  end
+
+  def caveats
+    <<~EOS
+      The formula installs files without configuring a root service.
+      Review the installed documentation, then run rootbroker-setup with sudo.
+    EOS
+  end
+
+  test do
+    assert_match "rootbroker v#{version}", shell_output("#{bin}/rootbroker version")
+  end
+end

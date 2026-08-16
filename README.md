@@ -106,6 +106,31 @@ sudo ./install.sh \
   --agent-bin /absolute/path/to/grok
 ```
 
+The GitHub release also includes an apt-compatible `.deb`. Package installation deliberately does
+not create accounts or start a root service; configure it explicitly afterward:
+
+```sh
+sudo apt install ./rootbroker_VERSION_ARCH.deb
+sudo rootbroker-setup \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+On Linuxbrew, the project tap uses the same two-stage model:
+
+```sh
+brew install Chang-LL/tap/rootbroker
+sudo "$(brew --prefix)/bin/rootbroker-setup" \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+Both package-manager paths install inspectable setup assets and require the same explicit human
+configuration as the release archive. Package upgrades do not silently restart the root daemon;
+rerun `rootbroker-setup` after reviewing an upgrade.
+
 For upgrades, the previous `--grok-bin PATH` form remains a compatibility alias for
 `--profile grok --agent-bin PATH`.
 

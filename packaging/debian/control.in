@@ -1,0 +1,13 @@
+Package: rootbroker
+Version: @DEB_VERSION@
+Section: admin
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Rootbroker contributors <rootbroker@users.noreply.github.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: sudo, systemd
+Homepage: https://github.com/Chang-LL/rootbroker
+Description: human-approved root command broker for local AI agents
+ Rootbroker lets an isolated local AI agent request exact root commands through
+ a separate human approval socket. Installation of this carrier package does
+ not configure or start the root broker; run rootbroker-setup explicitly.

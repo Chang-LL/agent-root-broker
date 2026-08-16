@@ -27,3 +27,15 @@ are understood and accepted, `--skip-home-access-revoke` bypasses that step with
 
 The uninstaller removes only its marked block from `/etc/grok/managed_config.toml`; unrelated
 content is preserved. Malformed or duplicated rootbroker markers cause it to stop for manual review.
+
+If rootbroker was installed through apt or Linuxbrew, run the root uninstaller first and then remove
+the carrier package:
+
+```sh
+sudo rootbroker-uninstall
+sudo apt remove rootbroker
+# or: brew uninstall rootbroker
+```
+
+The Debian package refuses removal while `/var/lib/rootbroker/install-state` shows an active
+configuration. This prevents package removal from silently leaving an unmanaged root daemon.

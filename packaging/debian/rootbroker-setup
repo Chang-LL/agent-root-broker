@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+exec /usr/share/rootbroker/installer/install.sh \
+  --rootbroker-bin /usr/libexec/rootbroker/rootbroker \
+  "$@"

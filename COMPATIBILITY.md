@@ -7,6 +7,8 @@
 | Operating system | Ubuntu 24.04 with systemd | This is the clean-host CI target for the first alpha. |
 | Architecture | Linux amd64 | Full privileged end-to-end CI. |
 | Architecture | Linux arm64 | Static cross-build is verified; privileged end-to-end coverage is pending. |
+| Debian package | Ubuntu 24.04, amd64 | Reproducible package build/install/removal runs in CI; arm64 is built and structurally inspected. |
+| Homebrew formula | Linux amd64 and arm64 | Formula syntax/rendering is tested; macOS is rejected because the daemon is Linux-only. |
 | Init/security APIs | systemd, Unix sockets, `SO_PEERCRED`, `/proc` | Required by the current daemon and installer. |
 | Agent integration | Grok Build with lifecycle hooks | Grok is the only shipped profile; upstream versions are not yet pinned as a compatibility promise. |
 | Home access | Local Linux filesystem with POSIX ACL and xattr support | Optional; symlinks and filesystem boundaries are not traversed. |

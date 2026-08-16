@@ -109,8 +109,19 @@ jobs:
       - name: Verify minimum supported Go version
         run: go test ./...
 
+  packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+      - name: Build, install, and remove Debian package
+        run: sudo env "PATH=$PATH" ./tests/deb_package_linux.sh
+
   install-system:
-    needs: [compatibility, quality, secrets, test]
+    needs: [compatibility, packages, quality, secrets, test]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
