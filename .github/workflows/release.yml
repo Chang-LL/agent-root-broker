@@ -45,9 +45,10 @@ jobs:
             echo "invalid release version: $VERSION" >&2
             exit 2
           }
-          mkdir -p release
+          release_root="$RUNNER_TEMP/hostctl-release"
+          mkdir -p "$release_root"
           for arch in amd64 arm64; do
-            stage="release/hostctl_${VERSION}_linux_${arch}"
+            stage="$release_root/hostctl_${VERSION}_linux_${arch}"
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
             cyclonedx-gomod bin -json -output "$stage/hostctl.bom.cdx.json" -version "$VERSION" "$stage/hostctl"
@@ -57,11 +58,19 @@ jobs:
             cp -R profiles "$stage/"
             cp packaging/config/config.json.in "$stage/packaging/config/"
             cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"
-            tar -C release -czf "release/hostctl_${VERSION}_linux_${arch}.tar.gz" "hostctl_${VERSION}_linux_${arch}"
+            tar -C "$release_root" -czf "$release_root/hostctl_${VERSION}_linux_${arch}.tar.gz" "hostctl_${VERSION}_linux_${arch}"
             rm -rf -- "$stage"
           done
-          cd release
+          cd "$release_root"
           sha256sum ./*.tar.gz > checksums.txt
+          cd "$GITHUB_WORKSPACE"
+          test -z "$(git status --porcelain)" || {
+            echo "release generation modified the source tree" >&2
+            git status --short >&2
+            exit 1
+          }
+          mkdir -p release
+          cp "$release_root"/*.tar.gz "$release_root/checksums.txt" release/
       - name: Attest release archives and checksums
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

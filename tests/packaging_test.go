@@ -182,6 +182,10 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(release, "uninstall.sh") {
 		t.Fatal("release archive omits uninstaller")
 	}
+	if !strings.Contains(release, `release_root="$RUNNER_TEMP/hostctl-release"`) ||
+		!strings.Contains(release, `git status --porcelain`) {
+		t.Fatal("release build does not keep generated files outside the source tree")
+	}
 
 	for name, item := range map[string]struct {
 		document  string

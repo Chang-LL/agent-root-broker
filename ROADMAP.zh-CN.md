@@ -91,8 +91,8 @@
   迁移为第一个 profile。
 - [x] 定义决策 provider interface，把本地人工审批迁移到默认 manual provider，同时仍由
   broker 掌管 lease 和命令执行。
-- [ ] 在增加带认证的远程审批前，将 Unix socket server 抽到传输 interface 后；为每个非默认
-  provider 和传输定义独立的信任与审计模型。
+- [x] 将已经认证的 Unix socket connection 抽到传输 interface 后，同时 server 仍只接受由
+  内核认证的 Unix peer；当前不提供远程传输。
 - [ ] 增加目录范围共享模式，比递归授权整个家目录更安全、更轻量。
 - [ ] 根据 CI 结果确定受支持的 Linux 发行版、文件系统、Grok 版本和明确兼容性矩阵。
 - [ ] 改善 ACL 部分变更和升级中断后的恢复能力。
@@ -114,7 +114,8 @@
 ## 当前范围边界
 
 Alpha 版本把 manual 人工 provider 接到本地 Unix socket 传输。当前已有编译时决策 provider
-interface，将审批决策与 lease、执行分开，但尚未随项目提供无人值守 provider 或其他传输。
+与 transport interface，将审批决策和经过认证的 connection 与 lease、执行分开，但尚未随
+项目提供无人值守 provider 或其他传输。
 网络传输和 AI 生成策略仍不属于当前受支持模式，但并非永久性的架构非目标。未来每种模式都
 需要明确隔离、认证、失败行为、可审计性和威胁模型。任何 provider 都不应静默削弱默认人工
 审批边界，也不应声称与其具有相同安全性。命令白名单也可以作为一种 provider 或附加约束来
