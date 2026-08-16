@@ -2,6 +2,10 @@
 
 # rootbroker
 
+[![CI](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 `rootbroker` 是一个小型 Linux 权限代理，让本地 AI agent 可以申请执行任意 root 命令，而无需
 把 `sudo`、Docker、LXD 或其他持久化提权路径直接交给 agent。所有提权请求默认拒绝，必须
 通过独立的 Unix socket 等待人工决策。

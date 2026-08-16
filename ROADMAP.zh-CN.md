@@ -69,7 +69,7 @@
 - [x] 将第三方 GitHub Actions 固定到不可变 commit SHA。
 - [x] 通过带 tag 的发布 workflow 提供校验和、CycloneDX SBOM 和构建来源证明。
 - [x] 在改变仓库可见性前，扫描完整 Git 历史中的凭据、私有主机信息和意外个人信息。
-- [ ] 仓库公开时启用受保护的 `main`、私密漏洞报告、secret scanning 和 code scanning。
+- [x] 仓库公开时启用受保护的 `main`、私密漏洞报告、secret scanning 和 code scanning。
 - [x] 增加简洁的贡献、支持、兼容性、升级、故障排查和卸载文档。
 - [x] 发布可由 apt 安装的 Debian 包和 Linuxbrew tap formula；测试软件包安装本身不产生 root
   权限，并确保已配置状态下的移除能够安全失败。

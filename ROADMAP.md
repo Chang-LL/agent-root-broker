@@ -84,7 +84,7 @@ version is `v0.1.0-alpha.1`.
 - [x] Publish checksums, a CycloneDX SBOM, and build provenance from the tagged release workflow.
 - [x] Scan the complete Git history for credentials, private host details, and unintended personal
   information before changing repository visibility.
-- [ ] Enable protected `main`, private vulnerability reporting, secret scanning, and code scanning
+- [x] Enable protected `main`, private vulnerability reporting, secret scanning, and code scanning
   when the repository becomes public.
 - [x] Add concise contributing, support, compatibility, upgrade, troubleshooting, and uninstall
   documentation.
