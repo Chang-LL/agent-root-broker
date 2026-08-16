@@ -5,6 +5,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.2] - 2026-08-16
+
 ### Fixed
 
 - Added a fail-closed migration tool and privileged system test for the earliest stateless private
@@ -35,5 +37,6 @@ project intends to use Semantic Versioning after the public alpha contract is de
 - Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
   explicit threat model.
 
-[Unreleased]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.1...HEAD
+[Unreleased]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.2...HEAD
+[0.1.0-alpha.2]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/Chang-LL/rootbroker/releases/tag/v0.1.0-alpha.1
