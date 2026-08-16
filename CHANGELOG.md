@@ -5,6 +5,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.1] - 2026-08-16
+
 ### Changed
 
 - Renamed the private pre-alpha project and every installed identity/path from `hostctl` to
@@ -19,3 +21,12 @@ project intends to use Semantic Versioning after the public alpha contract is de
   uninstallation with preserved agent-home data.
 - Linux root-level tests for account isolation, sudoers, systemd, approval lifecycle, timeout,
   revoke, daemon restart, ACL behavior, and uninstall.
+- Agent-adapter, decision-provider, installer-profile, and authenticated-transport extension
+  boundaries without shipping unattended approval or remote transport.
+- Reproducible apt-installable Debian packages and a generated Linuxbrew tap formula, both using an
+  explicit setup step rather than configuring root authority during package installation.
+- Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
+  explicit threat model.
+
+[Unreleased]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.1...HEAD
+[0.1.0-alpha.1]: https://github.com/Chang-LL/rootbroker/releases/tag/v0.1.0-alpha.1

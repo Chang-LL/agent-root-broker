@@ -3,7 +3,7 @@ Version: @DEB_VERSION@
 Section: admin
 Priority: optional
 Architecture: @ARCH@
-Maintainer: Rootbroker contributors <rootbroker@users.noreply.github.com>
+Maintainer: Rootbroker Maintainers <31204393+Chang-LL@users.noreply.github.com>
 Installed-Size: @INSTALLED_SIZE@
 Depends: sudo, systemd
 Homepage: https://github.com/Chang-LL/rootbroker
