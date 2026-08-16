@@ -50,6 +50,7 @@ cleanup() {
   fi
   /bin/rmdir /etc/grok /usr/local/libexec 2>/dev/null || true
   /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || true
+  /bin/rm -f -- /tmp/rootbroker-prealpha-revoke-called
   /bin/rm -rf -- "$TEST_DIR"
 }
 trap cleanup EXIT HUP INT TERM
@@ -95,21 +96,10 @@ printf '{}\n' >"/home/$AGENT_USER/.grok/hooks/hostctl.json"
 /bin/chmod 0644 "/home/$AGENT_USER/.grok/hooks/hostctl.json"
 /bin/ln -s /usr/local/share/hostctl/grok/hostctl-admin "/home/$AGENT_USER/.grok/skills/hostctl-admin"
 
-REVOKE_MARKER="$TEST_DIR/revoke-called"
-: >"$REVOKE_MARKER"
-/bin/chown "$APPROVER_USER" "$REVOKE_MARKER"
-/bin/chmod 0600 "$REVOKE_MARKER"
-{
-  echo '#!/bin/sh'
-  echo 'set -eu'
-  echo 'case "$(basename -- "$0"):$*" in'
-  echo '  "hostctl-bin:version") echo "hostctl 0.2.0-dev+system-fixture" ;;'
-  printf '  "hostctl-admin:home-access revoke") echo revoked >%s ;;\n' "$REVOKE_MARKER"
-  echo '  "hostctld:"*) exec /bin/sleep 3600 ;;'
-  echo '  *) exit 2 ;;'
-  echo 'esac'
-} >"$TEST_DIR/hostctl-bin"
-/usr/bin/install -o root -g root -m 0755 "$TEST_DIR/hostctl-bin" /usr/local/libexec/hostctl-bin
+REVOKE_MARKER=/tmp/rootbroker-prealpha-revoke-called
+[ ! -e "$REVOKE_MARKER" ] && [ ! -L "$REVOKE_MARKER" ] || fail "refusing pre-existing revoke marker"
+/usr/bin/install -o "$APPROVER_USER" -g "$(/usr/bin/id -gn "$APPROVER_USER")" -m 0600 /dev/null "$REVOKE_MARKER"
+/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/tests/fake_legacy_hostctl.sh" /usr/local/libexec/hostctl-bin
 /bin/ln -s /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl
 /bin/ln -s /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
 /bin/ln -s /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
