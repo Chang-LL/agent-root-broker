@@ -41,9 +41,9 @@ SOURCE_DATE_EPOCH=1700000000 "$PROJECT_DIR/scripts/build-deb.sh" \
   v0.1.0-alpha.1 amd64 "$BINARY" "$TEST_DIR/first"
 SOURCE_DATE_EPOCH=1700000000 "$PROJECT_DIR/scripts/build-deb.sh" \
   v0.1.0-alpha.1 amd64 "$BINARY" "$TEST_DIR/second"
-cmp "$TEST_DIR/first/rootbroker_0.1.0~alpha.1_amd64.deb" \
-  "$TEST_DIR/second/rootbroker_0.1.0~alpha.1_amd64.deb"
-PACKAGE="$TEST_DIR/first/rootbroker_0.1.0~alpha.1_amd64.deb"
+cmp "$TEST_DIR/first/rootbroker_0.1.0-alpha.1_amd64.deb" \
+  "$TEST_DIR/second/rootbroker_0.1.0-alpha.1_amd64.deb"
+PACKAGE="$TEST_DIR/first/rootbroker_0.1.0-alpha.1_amd64.deb"
 [ -f "$PACKAGE" ] || { echo "expected package was not built" >&2; exit 1; }
 dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Package: rootbroker'
 dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/sbin/rootbroker-setup'

@@ -24,6 +24,7 @@ esac
 [ -f "$BINARY" ] && [ -x "$BINARY" ] || { echo "binary is not executable: $BINARY" >&2; exit 2; }
 
 DEB_VERSION=${VERSION#v}
+FILE_VERSION=$DEB_VERSION
 case "$DEB_VERSION" in
   *-*)
     DEB_BASE=${DEB_VERSION%%-*}
@@ -78,6 +79,6 @@ if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
   find "$PACKAGE_ROOT" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 fi
 
-OUTPUT="$OUTPUT_DIR/rootbroker_${DEB_VERSION}_${ARCH}.deb"
+OUTPUT="$OUTPUT_DIR/rootbroker_${FILE_VERSION}_${ARCH}.deb"
 dpkg-deb --root-owner-group -Zxz -z9 --build "$PACKAGE_ROOT" "$OUTPUT"
 echo "$OUTPUT"
