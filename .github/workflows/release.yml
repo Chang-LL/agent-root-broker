@@ -16,12 +16,20 @@ jobs:
   release:
     needs: ci
     runs-on: ubuntu-latest
+    env:
+      CYCLONEDX_GOMOD_VERSION: v1.11.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: "1.23.x"
+          go-version: "1.26.x"
           cache: false
+      - name: Install pinned SBOM generator
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-bin"
+          GOBIN="$RUNNER_TEMP/release-bin" go install \
+            "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@${CYCLONEDX_GOMOD_VERSION}"
+          echo "$RUNNER_TEMP/release-bin" >> "$GITHUB_PATH"
       - name: Build archives
         env:
           VERSION: ${{ github.ref_name }}
@@ -32,7 +40,10 @@ jobs:
             stage="release/hostctl_${VERSION}_linux_${arch}"
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
-            cp install.sh uninstall.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md SECURITY.md "$stage/"
+            cyclonedx-gomod bin -json -output "$stage/hostctl.bom.cdx.json" -version "$VERSION" "$stage/hostctl"
+            cp install.sh uninstall.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
+              SECURITY.md CONTRIBUTING.md SUPPORT.md COMPATIBILITY.md UPGRADE.md UNINSTALL.md \
+              TROUBLESHOOTING.md THREAT_MODEL.md CHANGELOG.md "$stage/"
             cp -R profiles "$stage/"
             cp packaging/config/config.json.in "$stage/packaging/config/"
             cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"

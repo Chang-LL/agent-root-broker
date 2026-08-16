@@ -33,10 +33,13 @@
 - [x] 消除二进制选择歧义。源码 checkout 不得静默安装被忽略或过期的 `dist/` 产物。
 - [x] 修改系统前打印所选二进制路径、嵌入版本、架构和校验和。
 - [x] 在干净 Linux 主机上测试首次安装、重复安装，以及替换为具有不同版本的产物。
-- [ ] 测试从上一个已发布版本升级。
-- [ ] 记录并测试回滚和完整卸载，包括用户、组、sudoers、socket、service 文件、托管的 Grok
+- [x] 测试从先前 release 布局产物升级；首个公开 tag 之后保留已发布版本 fixture。
+- [x] 记录并测试回滚和完整卸载，包括用户、组、sudoers、socket、service 文件、托管的 Grok
   文件和可选 ACL。
-- [ ] 安装被中断或校验失败时安全退出。
+- [x] 校验或 daemon 就绪检测失败时安全退出；安装中断后可以重新执行，且不会因此授予 root
+  权限。
+- [ ] 在发布到软件包 registry 前选择不冲突的公开项目名、命令名和包名；`hostctl` 已被一个
+  成熟项目使用。
 
 ### 系统级验证
 
@@ -44,9 +47,9 @@
   sudoers 语法和 socket 权限。
 - [x] 验证 agent 无法直接调用 `sudo`，但能通过 `hostctl` 提交并执行获批命令。
 - [x] 在安装后的真实系统中端到端测试批准、拒绝和 message 授权复用。
-- [ ] 在安装后的真实系统中端到端测试超时、撤销、daemon 重启以及 command/session 授权边界。
-- [ ] 测试 Grok 生命周期集成，包括缺失、重复、延迟和乱序的 hook 事件。
-- [ ] 测试 home-access 授权、重复授权、部分失败、状态、撤销、默认 ACL 继承、限制性 mode、
+- [x] 在安装后的真实系统中端到端测试超时、撤销、daemon 重启以及 command/session 授权边界。
+- [x] 测试 Grok 生命周期集成，包括缺失、重复、延迟和乱序的 hook 事件。
+- [x] 测试 home-access 授权、重复授权、部分失败、状态、撤销、默认 ACL 继承、限制性 mode、
   符号链接和文件系统边界。
 - [x] 每次发布都运行特权测试，而不只在推送 `main` 时运行。
 
@@ -55,19 +58,19 @@
 - [x] 要求受支持 Linux 构建执行 `deadcode ./...` 时，不报告任何不可达生产函数。
 - [x] 加入固定版本、高信噪比的 `staticcheck`、`errcheck`、`shellcheck` 和 `actionlint`。
 - [x] 保留 `gofmt`、`go vet` 和 `go test -race ./...` 作为必需检查。
-- [ ] 按 package 发布 Linux 覆盖率。在设置全局百分比门槛前，先提高安全边界代码覆盖率；
+- [x] 按 package 发布 Linux 覆盖率。在设置全局百分比门槛前，先提高安全边界代码覆盖率；
   优先处理 `server`、`proc`、`commands`、`broker`、`executor` 和 `homeaccess`。
-- [ ] 审查底层 ACL syscall 和平台代码，寻找更小且有人维护的接口，包括评估
+- [x] 审查底层 ACL syscall 和平台代码，寻找更小且有人维护的接口，包括评估
   `golang.org/x/sys/unix` 是否比原始 `unsafe` syscall 更合适。
 
 ### 发布与仓库卫生
 
 - [x] 让 release workflow 运行与 pull request 相同的必需检查。
-- [ ] 将第三方 GitHub Actions 固定到不可变 commit SHA。
-- [ ] 为发布压缩包提供校验和与构建来源证明。
-- [ ] 在改变仓库可见性前，扫描完整 Git 历史中的凭据、私有主机信息和意外个人信息。
+- [x] 将第三方 GitHub Actions 固定到不可变 commit SHA。
+- [x] 通过带 tag 的发布 workflow 提供校验和、CycloneDX SBOM 和构建来源证明。
+- [x] 在改变仓库可见性前，扫描完整 Git 历史中的凭据、私有主机信息和意外个人信息。
 - [ ] 仓库公开时启用受保护的 `main`、私密漏洞报告、secret scanning 和 code scanning。
-- [ ] 增加简洁的贡献、支持、兼容性、升级、故障排查和卸载文档。
+- [x] 增加简洁的贡献、支持、兼容性、升级、故障排查和卸载文档。
 
 ### 公开 Alpha 退出条件
 

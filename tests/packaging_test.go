@@ -203,6 +203,14 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 			t.Fatalf("release archive omits %s", filename)
 		}
 	}
+	for _, filename := range []string{
+		"CONTRIBUTING.md", "SUPPORT.md", "COMPATIBILITY.md", "UPGRADE.md", "UNINSTALL.md",
+		"TROUBLESHOOTING.md", "THREAT_MODEL.md", "CHANGELOG.md",
+	} {
+		if !strings.Contains(release, filename) {
+			t.Fatalf("release archive omits %s", filename)
+		}
+	}
 	if strings.Count(roadmapEnglish, "- [x]") != strings.Count(roadmapChinese, "- [x]") ||
 		strings.Count(roadmapEnglish, "- [ ]") != strings.Count(roadmapChinese, "- [ ]") {
 		t.Fatal("English and Chinese roadmap checklist states are out of sync")

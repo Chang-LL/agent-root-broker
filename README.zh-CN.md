@@ -14,6 +14,9 @@
 > 本项目减少的是无人值守提权，而不是错误人工审批可能造成的后果。
 
 发布门槛与后续加固计划见 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)。
+运维文档包括：[兼容性](COMPATIBILITY.md)、[升级与回滚](UPGRADE.md)、
+[卸载](UNINSTALL.md)、[故障排查](TROUBLESHOOTING.md)、[支持](SUPPORT.md)、
+[威胁模型](THREAT_MODEL.md) 和 [参与贡献](CONTRIBUTING.md)。
 
 ## 工作原理
 
@@ -99,6 +102,7 @@ sudo ./install.sh \
 - 安装一个静态链接的 Go 二进制以及由 root 持有的多调用链接；
 - 调用 allowlist 中的 Grok profile，安装传入的 agent binary、launcher、托管 hooks、规则、
   `hostctl-admin` skill 和范围严格限定为非特权用户的 sudoers 规则；
+- 安装由 root 持有的 `hostctl-uninstall` 维护入口；
 - 启用 `hostctld.service`。
 
 安装器**不会**赋予 agent 账户 sudo 权限。不要将该账户加入 `sudo`、`docker`、`lxd`、
@@ -110,6 +114,16 @@ sudo ./install.sh \
 
 agent 账户拥有独立的 Grok 状态。首次启动时请正常完成认证；不要把其他用户的登录 token
 复制进它的家目录。
+
+升级时重新运行经过校验的新版本压缩包即可。安装器使用按内容寻址的 binary；如果新 daemon
+未能就绪，会自动恢复旧 binary。回滚细节见 [UPGRADE.md](UPGRADE.md)。卸载 hostctl 并保留
+agent 家目录数据：
+
+```sh
+sudo hostctl-uninstall
+```
+
+账户清理和 ACL 恢复选项见 [UNINSTALL.md](UNINSTALL.md)。
 
 ### 可选：访问审批者家目录
 
@@ -229,7 +243,8 @@ journalctl -u hostctld
 
 ## 开发
 
-从源码构建需要 Go 1.23 或更高版本。项目没有第三方 Go module：
+从源码构建需要 Go 1.23 或更高版本。运行时代码唯一的 Go module 依赖是官方维护的
+`golang.org/x/sys` 平台接口：
 
 ```sh
 make test
@@ -256,8 +271,10 @@ sudo make system-test
 ```
 
 daemon 仅支持 Linux，因为 Linux 内核提供的对端 PID/UID/GID 是其安全模型的一部分。纯逻辑
-测试和 Linux 交叉编译可以在 macOS 上运行。带 tag 的发布会通过 GitHub Actions 构建静态
-`linux-amd64` 和 `linux-arm64` 压缩包，并发布 SHA-256 校验和。
+测试和 Linux 交叉编译可以在 macOS 上运行。带 tag 的发布会使用当前受支持的 Go toolchain，
+通过 GitHub Actions 构建静态 `linux-amd64` 和 `linux-arm64` 压缩包。每份压缩包包含
+CycloneDX SBOM，同时发布 SHA-256 校验和与 GitHub 构建来源证明；CI 另行验证最低 Go 1.23
+源码构建契约。
 
 ## 非目标与限制
 

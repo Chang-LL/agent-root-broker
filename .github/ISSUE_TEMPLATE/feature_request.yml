@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a focused feature and its trust-boundary impact.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user outcome is currently difficult or impossible?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: Trust and failure model
+      description: Explain new authority, identities, transport, persistence, and fail-closed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

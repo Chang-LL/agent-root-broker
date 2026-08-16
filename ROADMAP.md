@@ -42,10 +42,14 @@ version is `v0.1.0-alpha.1`.
   the system.
 - [x] Test first install, repeated install, and replacement by a distinct versioned artifact on a
   clean Linux host.
-- [ ] Test upgrade from the previous published release.
-- [ ] Document and test rollback and complete uninstallation, including users, groups, sudoers,
+- [x] Test upgrade from a previous release-layout artifact; retain published release fixtures after
+  the first public tag.
+- [x] Document and test rollback and complete uninstallation, including users, groups, sudoers,
   sockets, service files, managed Grok files, and optional ACLs.
-- [ ] Fail safely when installation is interrupted or a validation step fails.
+- [x] Fail safely when validation or daemon readiness fails, and keep interrupted installs
+  rerunnable without granting root authority.
+- [ ] Select a conflict-free public project, command, and package name before publishing to package
+  registries; `hostctl` is already used by an established project.
 
 ### System-level verification
 
@@ -54,11 +58,11 @@ version is `v0.1.0-alpha.1`.
 - [x] Verify that the agent cannot invoke `sudo` directly but can submit an approved command through
   `hostctl`.
 - [x] Exercise approve, deny, and a reused message lease through the installed system end to end.
-- [ ] Exercise timeout, revoke, daemon restart, and command/session lease boundaries through the
+- [x] Exercise timeout, revoke, daemon restart, and command/session lease boundaries through the
   installed system end to end.
-- [ ] Exercise Grok lifecycle integration, including missing, duplicated, delayed, and out-of-order
+- [x] Exercise Grok lifecycle integration, including missing, duplicated, delayed, and out-of-order
   hook events.
-- [ ] Exercise home-access grant, repeat grant, partial failure, status, revoke, default ACL
+- [x] Exercise home-access grant, repeat grant, partial failure, status, revoke, default ACL
   inheritance, restrictive modes, symlinks, and filesystem boundaries.
 - [x] Run privileged tests on every release, not only on pushes to `main`.
 
@@ -68,21 +72,21 @@ version is `v0.1.0-alpha.1`.
   build.
 - [x] Add pinned, high-signal checks: `staticcheck`, `errcheck`, `shellcheck`, and `actionlint`.
 - [x] Keep `gofmt`, `go vet`, and `go test -race ./...` as required checks.
-- [ ] Publish Linux coverage by package. Improve security-boundary coverage before imposing a global
+- [x] Publish Linux coverage by package. Improve security-boundary coverage before imposing a global
   percentage gate; prioritize `server`, `proc`, `commands`, `broker`, `executor`, and `homeaccess`.
-- [ ] Review low-level ACL syscalls and platform code for a smaller maintained interface, including
+- [x] Review low-level ACL syscalls and platform code for a smaller maintained interface, including
   whether `golang.org/x/sys/unix` is a better tradeoff than raw `unsafe` syscalls.
 
 ### Release and repository hygiene
 
 - [x] Make the release workflow run the same required checks as pull requests.
-- [ ] Pin third-party GitHub Actions to immutable commit SHAs.
-- [ ] Publish checksums and build provenance for release archives.
-- [ ] Scan the complete Git history for credentials, private host details, and unintended personal
+- [x] Pin third-party GitHub Actions to immutable commit SHAs.
+- [x] Publish checksums, a CycloneDX SBOM, and build provenance from the tagged release workflow.
+- [x] Scan the complete Git history for credentials, private host details, and unintended personal
   information before changing repository visibility.
 - [ ] Enable protected `main`, private vulnerability reporting, secret scanning, and code scanning
   when the repository becomes public.
-- [ ] Add concise contributing, support, compatibility, upgrade, troubleshooting, and uninstall
+- [x] Add concise contributing, support, compatibility, upgrade, troubleshooting, and uninstall
   documentation.
 
 ### Public alpha exit criteria

@@ -1,5 +1,11 @@
 # Security
 
+## Supported versions
+
+Before the first public tag, only the current `main` branch receives security fixes. During public
+alpha, only the newest published alpha is supported unless a release note states otherwise. This
+policy will be tightened before a stable release.
+
 ## Security model
 
 This section describes the shipped `ManualProvider` over local Unix sockets. The provider interface
@@ -66,3 +72,5 @@ allowlist. The target is the unprivileged agent account, not root, and the wrapp
 Please report vulnerabilities privately through the repository's security-advisory feature. Include
 the affected version, deployment assumptions, reproduction steps, and impact. Do not include real
 credentials, hostnames, IP addresses, or production command output.
+
+See [THREAT_MODEL.md](THREAT_MODEL.md) for assets, trust boundaries, abuse paths, and CI validation.

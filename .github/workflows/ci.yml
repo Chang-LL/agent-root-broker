@@ -16,6 +16,7 @@ jobs:
       DEADCODE_VERSION: v0.48.0
       STATICCHECK_VERSION: v0.7.0
       ERRCHECK_VERSION: v1.20.0
+      GOVULNCHECK_VERSION: v1.7.0
       ACTIONLINT_VERSION: v1.7.12
       SHELLCHECK_VERSION: v0.11.0
       SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
@@ -32,6 +33,7 @@ jobs:
           GOBIN="$RUNNER_TEMP/lint-bin" go install "golang.org/x/tools/cmd/deadcode@${DEADCODE_VERSION}"
           GOBIN="$RUNNER_TEMP/lint-bin" go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
           GOBIN="$RUNNER_TEMP/lint-bin" go install "github.com/kisielk/errcheck@${ERRCHECK_VERSION}"
+          GOBIN="$RUNNER_TEMP/lint-bin" go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
           GOBIN="$RUNNER_TEMP/lint-bin" go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
           echo "$RUNNER_TEMP/lint-bin" >> "$GITHUB_PATH"
       - name: Install pinned ShellCheck
@@ -45,13 +47,27 @@ jobs:
       - name: High-signal lint and dead-code gate
         run: make lint
 
+  secrets:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Scan complete Git history
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: "1.23.x"
+          go-version: "1.26.x"
           cache: false
       - name: Unit and race tests
         run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
@@ -82,14 +98,25 @@ jobs:
       - name: Cross-compile releases
         run: make snapshot VERSION=ci
 
-  install-system:
-    needs: [quality, test]
+  compatibility:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.23.x"
+          cache: false
+      - name: Verify minimum supported Go version
+        run: go test ./...
+
+  install-system:
+    needs: [compatibility, quality, secrets, test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: "1.26.x"
           cache: false
       - name: Full install, reinstall, upgrade, and isolation test
         run: |

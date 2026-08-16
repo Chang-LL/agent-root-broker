@@ -16,6 +16,9 @@ dynamically loaded plugin API.
 > human approval.
 
 Release gates and planned hardening work are tracked in [ROADMAP.md](ROADMAP.md).
+Operational documentation: [compatibility](COMPATIBILITY.md), [upgrade/rollback](UPGRADE.md),
+[uninstall](UNINSTALL.md), [troubleshooting](TROUBLESHOOTING.md),
+[support](SUPPORT.md), [threat model](THREAT_MODEL.md), and [contributing](CONTRIBUTING.md).
 
 ## How it works
 
@@ -108,6 +111,7 @@ The installer:
 - installs one statically linked Go binary and root-owned multicall links;
 - invokes the allowlisted Grok profile to install the supplied agent binary, launcher, managed hooks,
   rules, `hostctl-admin` skill, and narrowly scoped unprivileged-user sudoers rule;
+- installs `hostctl-uninstall` as a root-owned maintenance entry point;
 - enables `hostctld.service`.
 
 It does **not** give the agent account sudo rights. Do not add that account to `sudo`, `docker`,
@@ -119,6 +123,16 @@ It does not preserve API keys or the rest of the caller environment.
 
 The agent account has separate Grok state. On the first launch, authenticate it normally; do not
 copy another user's login tokens into its home.
+
+Rerun a verified newer archive to upgrade. The installer keeps content-addressed binaries and
+automatically restores the previous binary if the new daemon does not become ready. See
+[UPGRADE.md](UPGRADE.md) for rollback behavior. To remove hostctl while preserving agent-home data:
+
+```sh
+sudo hostctl-uninstall
+```
+
+Account-removal and ACL-recovery options are documented in [UNINSTALL.md](UNINSTALL.md).
 
 ### Optional access to the approver's home
 
@@ -246,7 +260,8 @@ The executable path and command hash are logged.
 
 ## Development
 
-Go 1.23 or newer is required to build from source. The project has no third-party Go modules:
+Go 1.23 or newer is required to build from source. The only runtime Go module dependency is the
+official `golang.org/x/sys` platform interface:
 
 ```sh
 make test
@@ -274,7 +289,9 @@ sudo make system-test
 
 The daemon is Linux-only because it treats kernel-supplied peer PID/UID/GID as part of its security
 model. Pure logic tests and Linux cross-compilation run on macOS. Tagged releases build static
-`linux-amd64` and `linux-arm64` archives in GitHub Actions and publish SHA-256 checksums.
+`linux-amd64` and `linux-arm64` archives with the current supported Go toolchain in GitHub Actions.
+Each archive includes a CycloneDX SBOM; releases also publish SHA-256 checksums and GitHub build
+provenance attestations. CI separately tests the minimum Go 1.23 source-build contract.
 
 ## Non-goals and limits
 
