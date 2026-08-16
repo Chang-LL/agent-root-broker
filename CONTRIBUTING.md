@@ -5,7 +5,7 @@ change with a clear invariant is preferred to a broad abstraction.
 
 ## Development setup
 
-Use Go 1.23 or newer. The normal local loop is:
+Use Go 1.25 or newer. The normal local loop is:
 
 ```sh
 make test

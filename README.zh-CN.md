@@ -243,7 +243,7 @@ journalctl -u hostctld
 
 ## 开发
 
-从源码构建需要 Go 1.23 或更高版本。运行时代码唯一的 Go module 依赖是官方维护的
+从源码构建需要 Go 1.25 或更高版本。运行时代码唯一的 Go module 依赖是官方维护的
 `golang.org/x/sys` 平台接口：
 
 ```sh
@@ -273,7 +273,7 @@ sudo make system-test
 daemon 仅支持 Linux，因为 Linux 内核提供的对端 PID/UID/GID 是其安全模型的一部分。纯逻辑
 测试和 Linux 交叉编译可以在 macOS 上运行。带 tag 的发布会使用当前受支持的 Go toolchain，
 通过 GitHub Actions 构建静态 `linux-amd64` 和 `linux-arm64` 压缩包。每份压缩包包含
-CycloneDX SBOM，同时发布 SHA-256 校验和与 GitHub 构建来源证明；CI 另行验证最低 Go 1.23
+CycloneDX SBOM，同时发布 SHA-256 校验和与 GitHub 构建来源证明；CI 另行验证最低 Go 1.25
 源码构建契约。
 
 ## 非目标与限制

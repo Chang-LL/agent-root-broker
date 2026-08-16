@@ -260,7 +260,7 @@ The executable path and command hash are logged.
 
 ## Development
 
-Go 1.23 or newer is required to build from source. The only runtime Go module dependency is the
+Go 1.25 or newer is required to build from source. The only runtime Go module dependency is the
 official `golang.org/x/sys` platform interface:
 
 ```sh
@@ -291,7 +291,7 @@ The daemon is Linux-only because it treats kernel-supplied peer PID/UID/GID as p
 model. Pure logic tests and Linux cross-compilation run on macOS. Tagged releases build static
 `linux-amd64` and `linux-arm64` archives with the current supported Go toolchain in GitHub Actions.
 Each archive includes a CycloneDX SBOM; releases also publish SHA-256 checksums and GitHub build
-provenance attestations. CI separately tests the minimum Go 1.23 source-build contract.
+provenance attestations. CI separately tests the minimum Go 1.25 source-build contract.
 
 ## Non-goals and limits
 
