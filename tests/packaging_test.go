@@ -189,6 +189,13 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 			t.Fatalf("release workflow is missing package artifact behavior %q", wanted)
 		}
 	}
+	if !strings.Contains(release, "--prerelease") {
+		t.Fatal("release workflow does not mark prerelease tags")
+	}
+	debBuilder := projectFile(t, "scripts", "build-deb.sh")
+	if !strings.Contains(debBuilder, `rootbroker_${FILE_VERSION}_${ARCH}.deb`) {
+		t.Fatal("Debian release filename may be rewritten by GitHub")
+	}
 	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
 		!strings.Contains(release, `git status --porcelain`) {
 		t.Fatal("release build does not keep generated files outside the source tree")

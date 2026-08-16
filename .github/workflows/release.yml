@@ -103,4 +103,14 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/*.deb release/rootbroker.rb release/checksums.txt --generate-notes --verify-tag
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-*)
+              gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/*.deb release/rootbroker.rb release/checksums.txt \
+                --generate-notes --verify-tag --prerelease
+              ;;
+            *)
+              gh release create "$GITHUB_REF_NAME" release/*.tar.gz release/*.deb release/rootbroker.rb release/checksums.txt \
+                --generate-notes --verify-tag
+              ;;
+          esac
