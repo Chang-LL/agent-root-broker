@@ -88,7 +88,7 @@ version is `v0.1.0-alpha.1`.
   when the repository becomes public.
 - [x] Add concise contributing, support, compatibility, upgrade, troubleshooting, and uninstall
   documentation.
-- [ ] Publish apt-installable Debian packages and a Linuxbrew tap formula; test that package
+- [x] Publish apt-installable Debian packages and a Linuxbrew tap formula; test that package
   installation itself creates no root authority and that configured removal fails safely.
 
 ### Public alpha exit criteria
