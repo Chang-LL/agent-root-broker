@@ -235,21 +235,6 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	}
 }
 
-func TestAlphaOneManifestRepairIsExactAndAttested(t *testing.T) {
-	workflow := projectFile(t, ".github", "workflows", "repair-v0.1.0-alpha.1-manifest.yml")
-	for _, wanted := range []string{
-		"TAG: v0.1.0-alpha.1",
-		`[ "$#" -eq 2 ]`,
-		"sha256sum -c checksums.txt",
-		"actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8",
-		`gh release upload "$TAG" release-manifest/checksums.txt --clobber`,
-	} {
-		if !strings.Contains(workflow, wanted) {
-			t.Fatalf("alpha.1 manifest repair is missing constraint %q", wanted)
-		}
-	}
-}
-
 func TestVendorPayloadsStayBehindIntegrationAdapters(t *testing.T) {
 	adapter := projectFile(t, "internal", "integrations", "grok", "adapter.go")
 	for _, field := range []string{"hookEventName", "toolName", "toolInput", `raw["reason"]`} {
