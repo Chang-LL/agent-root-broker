@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"syscall"
-	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -17,17 +17,17 @@ const (
 )
 
 func platformManage(action, home string, uid uint32) (string, error) {
-	fd, err := syscall.Open(home, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	fd, err := unix.Open(home, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return "", fmt.Errorf("open home directory safely: %w", err)
 	}
 	if action == "status" {
-		defer func() { _ = syscall.Close(fd) }()
+		defer func() { _ = unix.Close(fd) }()
 		return aclStatus(fd, uid)
 	}
-	defer func() { _ = syscall.Close(fd) }()
-	var stat syscall.Stat_t
-	if err := syscall.Fstat(fd, &stat); err != nil {
+	defer func() { _ = unix.Close(fd) }()
+	var stat unix.Stat_t
+	if err := unix.Fstat(fd, &stat); err != nil {
 		return "", fmt.Errorf("inspect home filesystem: %w", err)
 	}
 	marker := homeMarkerName(uid)
@@ -37,7 +37,7 @@ func platformManage(action, home string, uid uint32) (string, error) {
 	// Open a fresh directory description instead of duping fd. A duplicate
 	// shares its directory offset with the original description, which makes a
 	// traversal vulnerable to another reader advancing that shared offset.
-	walkRoot, err := syscall.Openat(fd, ".", syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	walkRoot, err := unix.Openat(fd, ".", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return "", fmt.Errorf("open home traversal descriptor: %w", err)
 	}
@@ -50,7 +50,7 @@ func platformManage(action, home string, uid uint32) (string, error) {
 		}
 		return "enabled", nil
 	}
-	if err := removeXattr(fd, marker); err != nil && !errors.Is(err, syscall.ENODATA) {
+	if err := removeXattr(fd, marker); err != nil && !errors.Is(err, unix.ENODATA) {
 		return "", fmt.Errorf("clear completed home access grant marker: %w", err)
 	}
 	return "disabled", nil
@@ -59,15 +59,15 @@ func platformManage(action, home string, uid uint32) (string, error) {
 func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
 	file := os.NewFile(uintptr(fd), "hostctl-home")
 	if file == nil {
-		_ = syscall.Close(fd)
+		_ = unix.Close(fd)
 		return fmt.Errorf("open home directory file descriptor")
 	}
 	defer func() { _ = file.Close() }()
-	var stat syscall.Stat_t
-	if err := syscall.Fstat(fd, &stat); err != nil {
+	var stat unix.Stat_t
+	if err := unix.Fstat(fd, &stat); err != nil {
 		return err
 	}
-	isDirectory := stat.Mode&syscall.S_IFMT == syscall.S_IFDIR
+	isDirectory := stat.Mode&unix.S_IFMT == unix.S_IFDIR
 	if uint64(stat.Dev) != rootDevice {
 		return nil
 	}
@@ -82,21 +82,21 @@ func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
 		return fmt.Errorf("read home directory: %w", err)
 	}
 	for _, name := range names {
-		child, err := syscall.Openat(fd, name, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
-		if errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.ENXIO) || errors.Is(err, syscall.ENODEV) {
+		child, err := unix.Openat(fd, name, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK, 0)
+		if errors.Is(err, unix.ENOENT) || errors.Is(err, unix.ELOOP) || errors.Is(err, unix.ENXIO) || errors.Is(err, unix.ENODEV) {
 			continue
 		}
 		if err != nil {
 			return fmt.Errorf("open home entry safely: %w", err)
 		}
-		var childStat syscall.Stat_t
-		if err := syscall.Fstat(child, &childStat); err != nil {
-			_ = syscall.Close(child)
+		var childStat unix.Stat_t
+		if err := unix.Fstat(child, &childStat); err != nil {
+			_ = unix.Close(child)
 			return err
 		}
-		kind := childStat.Mode & syscall.S_IFMT
-		if uint64(childStat.Dev) != rootDevice || (kind != syscall.S_IFDIR && kind != syscall.S_IFREG) {
-			_ = syscall.Close(child)
+		kind := childStat.Mode & unix.S_IFMT
+		if uint64(childStat.Dev) != rootDevice || (kind != unix.S_IFDIR && kind != unix.S_IFREG) {
+			_ = unix.Close(child)
 			continue
 		}
 		if err := walkFD(child, rootDevice, action, uid); err != nil {
@@ -163,7 +163,7 @@ func grantDefault(fd int, uid uint32, base aclValue) error {
 func revokeDefault(fd int, uid uint32) error {
 	value, present, err := readACL(fd, defaultACLName)
 	if err != nil || !present {
-		if errors.Is(err, syscall.ENODATA) || err == nil {
+		if errors.Is(err, unix.ENODATA) || err == nil {
 			_ = removeXattr(fd, markerName(uid))
 			return nil
 		}
@@ -175,7 +175,7 @@ func revokeDefault(fd int, uid uint32) error {
 			return markerErr
 		}
 		if created && !value.hasNamedEntries() {
-			if err := removeXattr(fd, defaultACLName); err != nil && !errors.Is(err, syscall.ENODATA) {
+			if err := removeXattr(fd, defaultACLName); err != nil && !errors.Is(err, unix.ENODATA) {
 				return err
 			}
 			_ = removeXattr(fd, markerName(uid))
@@ -187,7 +187,7 @@ func revokeDefault(fd int, uid uint32) error {
 		return err
 	}
 	if created && !value.hasNamedEntries() {
-		if err := removeXattr(fd, defaultACLName); err != nil && !errors.Is(err, syscall.ENODATA) {
+		if err := removeXattr(fd, defaultACLName); err != nil && !errors.Is(err, unix.ENODATA) {
 			return err
 		}
 		_ = removeXattr(fd, markerName(uid))
@@ -245,52 +245,36 @@ func homeMarkerName(uid uint32) string {
 }
 
 func getXattr(fd int, name string) ([]byte, bool, error) {
-	namePointer, err := syscall.BytePtrFromString(name)
-	if err != nil {
-		return nil, false, err
-	}
-	size, _, errno := syscall.Syscall6(syscall.SYS_FGETXATTR, uintptr(fd), uintptr(unsafe.Pointer(namePointer)), 0, 0, 0, 0)
-	if errno == syscall.ENODATA {
+	size, err := unix.Fgetxattr(fd, name, nil)
+	if errors.Is(err, unix.ENODATA) {
 		return nil, false, nil
 	}
-	if errno != 0 {
-		return nil, false, errno
+	if err != nil {
+		return nil, false, err
 	}
 	if size == 0 {
 		return []byte{}, true, nil
 	}
 	for attempts := 0; attempts < 3; attempts++ {
-		data := make([]byte, int(size))
-		read, _, readErr := syscall.Syscall6(syscall.SYS_FGETXATTR, uintptr(fd), uintptr(unsafe.Pointer(namePointer)), uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)), 0, 0)
-		if readErr == syscall.ERANGE {
-			size, _, errno = syscall.Syscall6(syscall.SYS_FGETXATTR, uintptr(fd), uintptr(unsafe.Pointer(namePointer)), 0, 0, 0, 0)
-			if errno != 0 {
-				return nil, false, errno
+		data := make([]byte, size)
+		read, readErr := unix.Fgetxattr(fd, name, data)
+		if errors.Is(readErr, unix.ERANGE) {
+			size, err = unix.Fgetxattr(fd, name, nil)
+			if err != nil {
+				return nil, false, err
 			}
 			continue
 		}
-		if readErr != 0 {
+		if readErr != nil {
 			return nil, false, readErr
 		}
-		return data[:int(read)], true, nil
+		return data[:read], true, nil
 	}
 	return nil, false, fmt.Errorf("POSIX ACL changed repeatedly while reading")
 }
 
 func setXattr(fd int, name string, data []byte) error {
-	namePointer, err := syscall.BytePtrFromString(name)
-	if err != nil {
-		return err
-	}
-	var dataPointer unsafe.Pointer
-	if len(data) > 0 {
-		dataPointer = unsafe.Pointer(&data[0])
-	}
-	_, _, errno := syscall.Syscall6(syscall.SYS_FSETXATTR, uintptr(fd), uintptr(unsafe.Pointer(namePointer)), uintptr(dataPointer), uintptr(len(data)), 0, 0)
-	if errno != 0 {
-		return errno
-	}
-	return nil
+	return unix.Fsetxattr(fd, name, data, 0)
 }
 
 func hasXattr(fd int, name string) (bool, error) {
@@ -299,13 +283,5 @@ func hasXattr(fd int, name string) (bool, error) {
 }
 
 func removeXattr(fd int, name string) error {
-	namePointer, err := syscall.BytePtrFromString(name)
-	if err != nil {
-		return err
-	}
-	_, _, errno := syscall.Syscall(syscall.SYS_FREMOVEXATTR, uintptr(fd), uintptr(unsafe.Pointer(namePointer)), 0)
-	if errno != 0 {
-		return errno
-	}
-	return nil
+	return unix.Fremovexattr(fd, name)
 }

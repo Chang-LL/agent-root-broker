@@ -5,8 +5,9 @@ package homeaccess
 import (
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestPlatformGrantStatusRevoke(t *testing.T) {
@@ -60,23 +61,82 @@ func TestPlatformGrantStatusRevoke(t *testing.T) {
 	assertACLUser(t, file, agentUID, 1, false)
 	assertACLUser(t, newFile, agentUID, 1, false)
 
-	fd, err := syscall.Open(home, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW, 0)
+	fd, err := unix.Open(home, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = syscall.Close(fd) }()
+	defer func() { _ = unix.Close(fd) }()
 	if _, present, err := readACL(fd, defaultACLName); err != nil || present {
 		t.Fatalf("hostctl-created default ACL remains: present=%v err=%v", present, err)
 	}
 }
 
-func assertACLUser(t *testing.T, path string, uid uint32, permission uint16, wanted bool) {
-	t.Helper()
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+func TestPlatformPartialGrantCanBeDetectedAndRevoked(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("trusted completion markers require root")
+	}
+	const agentUID = uint32(424243)
+	home := t.TempDir()
+	fd, err := unix.Open(home, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = syscall.Close(fd) }()
+	value := baseACL(0o700)
+	value.grantUser(agentUID, 7)
+	if err := writeACL(fd, accessACLName, value); err != nil {
+		_ = unix.Close(fd)
+		t.Fatal(err)
+	}
+	_ = unix.Close(fd)
+
+	state, err := platformManage("status", home, agentUID)
+	if err != nil || state != "partial" {
+		t.Fatalf("partial status=%q err=%v", state, err)
+	}
+	state, err = platformManage("revoke", home, agentUID)
+	if err != nil || state != "disabled" {
+		t.Fatalf("partial revoke status=%q err=%v", state, err)
+	}
+}
+
+func TestPlatformDoesNotCrossFilesystemBoundary(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("mount test requires root")
+	}
+	const agentUID = uint32(424244)
+	home := t.TempDir()
+	mountpoint := filepath.Join(home, "mounted")
+	if err := os.Mkdir(mountpoint, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Mount("tmpfs", mountpoint, "tmpfs", 0, "size=1m"); err != nil {
+		t.Skipf("temporary mount unavailable: %v", err)
+	}
+	defer func() {
+		if err := unix.Unmount(mountpoint, 0); err != nil {
+			t.Errorf("unmount: %v", err)
+		}
+	}()
+	outside := filepath.Join(mountpoint, "outside")
+	if err := os.WriteFile(outside, []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := platformManage("grant", home, agentUID); err != nil {
+		t.Fatal(err)
+	}
+	assertACLUser(t, outside, agentUID, 1, false)
+	if _, err := platformManage("revoke", home, agentUID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertACLUser(t *testing.T, path string, uid uint32, permission uint16, wanted bool) {
+	t.Helper()
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = unix.Close(fd) }()
 	value, present, err := readACL(fd, accessACLName)
 	if err != nil {
 		t.Fatal(err)

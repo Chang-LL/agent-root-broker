@@ -211,3 +211,35 @@ func TestProviderCannotApproveAfterTurnEnds(t *testing.T) {
 		t.Fatal("provider approval executed after its turn ended")
 	}
 }
+
+func TestLifecycleSequenceFailsClosed(t *testing.T) {
+	b := New(config.Default())
+	b.alive = func(proc.Identity) bool { return true }
+	process := proc.Identity{PID: 31, UID: 32, StartTime: 33}
+
+	if err := b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "sequence"}); err == nil || err.Code != "lifecycle_out_of_order" {
+		t.Fatalf("turn before session returned %v", err)
+	}
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionStarted, SessionID: "sequence"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionStarted, SessionID: "sequence"})
+	if err := b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "sequence"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "sequence"}); err == nil || err.Code != "lifecycle_ambiguous" {
+		t.Fatalf("duplicate active turn returned %v", err)
+	}
+	if _, err := b.activeSessionLocked(process); err == nil || err.Code != "no_active_turn" {
+		t.Fatalf("ambiguous turn remained active: %v", err)
+	}
+
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnEnded, SessionID: "sequence"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "sequence"})
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnEnded, SessionID: "sequence"})
+	if _, err := b.activeSessionLocked(process); err == nil || err.Code != "no_active_turn" {
+		t.Fatalf("delayed stop left a turn active: %v", err)
+	}
+	_ = b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.SessionEnded, SessionID: "sequence"})
+	if err := b.HandleLifecycle(process, agent.LifecycleEvent{Kind: agent.TurnStarted, SessionID: "sequence"}); err == nil || err.Code != "lifecycle_out_of_order" {
+		t.Fatalf("turn after session end returned %v", err)
+	}
+}

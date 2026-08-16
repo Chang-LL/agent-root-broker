@@ -18,7 +18,7 @@ import (
 )
 
 var blockedExecutables = map[string]bool{
-	"hostctl": true, "hostctl-admin": true, "hostctld": true,
+	"hostctl": true, "hostctl-admin": true, "hostctl-maint": true, "hostctld": true,
 	"hostctl-grok-hook": true, "pkexec": true, "su": true, "sudo": true,
 	"hostctl-bin": true,
 }

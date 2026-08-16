@@ -4,7 +4,7 @@ Integration profiles contain the installation behavior that belongs to one agent
 not dynamically loaded plugins: `install.sh` selects only names in its built-in allowlist, then
 sources the matching reviewed profile file with root authority.
 
-Contract version 1 requires these metadata variables:
+Contract version 2 requires these metadata variables:
 
 - `PROFILE_CONTRACT_VERSION`
 - `PROFILE_DISPLAY_NAME`
@@ -12,12 +12,15 @@ Contract version 1 requires these metadata variables:
 - `PROFILE_AGENT_EXECUTABLE`
 - `PROFILE_SUDOERS_FILE`
 
-It also requires four functions:
+It also requires six functions:
 
 - `profile_preflight`: validate every profile asset before the core installer changes the system;
+- `profile_prepare AGENT_USER TMP_DIR`: render and validate profile-specific files without changing
+  the system;
 - `profile_install AGENT_BIN AGENT_USER TMP_DIR`: install the agent executable, launcher, hooks, and
   managed assets;
-- `profile_install_sudoers AGENT_USER TMP_DIR`: validate and install only the profile-specific rule;
+- `profile_install_sudoers TMP_DIR`: install the already validated profile-specific rule;
+- `profile_uninstall AGENT_HOME TMP_DIR`: remove only profile-owned files and managed blocks;
 - `profile_print_next_steps`: print profile-specific launch or authentication guidance.
 
 The core installer owns hostctl identities/groups, the hostctl binary and multicall links, daemon

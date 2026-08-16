@@ -30,7 +30,7 @@ jobs:
             stage="release/hostctl_${VERSION}_linux_${arch}"
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
-            cp install.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md SECURITY.md "$stage/"
+            cp install.sh uninstall.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md SECURITY.md "$stage/"
             cp -R profiles "$stage/"
             cp packaging/config/config.json.in "$stage/packaging/config/"
             cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"

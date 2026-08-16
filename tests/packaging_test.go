@@ -2,10 +2,42 @@ package tests
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestGrokManagedConfigMarkersFailClosed(t *testing.T) {
+	profile, err := filepath.Abs(filepath.Join("..", "profiles", "grok", "profile.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name    string
+		content string
+		valid   bool
+	}{
+		{name: "absent", content: "other = true\n", valid: true},
+		{name: "managed", content: "# BEGIN hostctl managed hooks\nitem = true\n# END hostctl managed hooks\n", valid: true},
+		{name: "unclosed", content: "# BEGIN hostctl managed hooks\n", valid: false},
+		{name: "reversed", content: "# END hostctl managed hooks\n# BEGIN hostctl managed hooks\n", valid: false},
+		{name: "duplicate", content: "# BEGIN hostctl managed hooks\n# END hostctl managed hooks\n# BEGIN hostctl managed hooks\n# END hostctl managed hooks\n", valid: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := filepath.Join(t.TempDir(), "managed_config.toml")
+			if err := os.WriteFile(config, []byte(test.content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			command := exec.Command("/bin/sh", "-c", `. "$1"; profile_validate_managed_config "$2"`, "hostctl-profile-test", profile, config)
+			err := command.Run()
+			if (err == nil) != test.valid {
+				t.Fatalf("valid=%v err=%v", test.valid, err)
+			}
+		})
+	}
+}
 
 func projectFile(t *testing.T, elements ...string) string {
 	t.Helper()
@@ -31,6 +63,7 @@ func TestGrokSafePreservesOnlyProxyEnvironment(t *testing.T) {
 
 func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	installer := projectFile(t, "install.sh")
+	uninstaller := projectFile(t, "uninstall.sh")
 	profile := projectFile(t, "profiles", "grok", "profile.sh")
 	for _, wanted := range []string{
 		"NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *",
@@ -42,10 +75,17 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	}
 	for _, wanted := range []string{
 		"/usr/local/libexec/hostctl-bin",
+		"HOSTCTL_OBJECT",
+		"hostctld --check-config",
 		"profile_install_sudoers",
 	} {
 		if !strings.Contains(installer, wanted) {
 			t.Fatalf("installer is missing %q", wanted)
+		}
+	}
+	for _, wanted := range []string{"hostctl-maint", "profile_uninstall", "--purge-agent-account", "Agent home data is always preserved"} {
+		if !strings.Contains(uninstaller, wanted) {
+			t.Fatalf("uninstaller is missing %q", wanted)
 		}
 	}
 	if strings.Contains(installer, "src/hostctl") || strings.Contains(installer, "python") {
@@ -81,7 +121,7 @@ func TestInstallerKeepsGrokDetailsBehindProfile(t *testing.T) {
 		}
 	}
 	for _, wanted := range []string{
-		"PROFILE_CONTRACT_VERSION=1", "profile_preflight", "profile_install", "profile_install_sudoers",
+		"PROFILE_CONTRACT_VERSION=2", "profile_preflight", "profile_prepare", "profile_install", "profile_install_sudoers", "profile_uninstall",
 	} {
 		if !strings.Contains(profile, wanted) {
 			t.Fatalf("Grok profile contract is missing %q", wanted)
@@ -137,6 +177,9 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	release := projectFile(t, ".github", "workflows", "release.yml")
 	if !strings.Contains(release, "cp -R profiles") {
 		t.Fatal("release archive omits integration profiles")
+	}
+	if !strings.Contains(release, "uninstall.sh") {
+		t.Fatal("release archive omits uninstaller")
 	}
 
 	for name, item := range map[string]struct {

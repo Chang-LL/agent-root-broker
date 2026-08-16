@@ -78,5 +78,6 @@ jobs:
           sudo env \
             "PATH=$PATH" \
             HOSTCTL_SYSTEM_TEST_ALLOW_MUTATION=1 \
-            "HOSTCTL_TEST_APPROVER_USER=$USER" \
+            HOSTCTL_TEST_CREATE_APPROVER=1 \
+            HOSTCTL_TEST_APPROVER_USER=hostctl-test-approver \
             ./tests/install_system_linux.sh

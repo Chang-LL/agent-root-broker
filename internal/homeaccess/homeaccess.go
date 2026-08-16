@@ -27,6 +27,30 @@ func New() *Manager {
 	return &Manager{operation: platformManage, lookupUID: lookupUID}
 }
 
+// ResolveTarget validates the two identities used by an offline home-access
+// recovery operation and returns the approver's canonical home path.
+func ResolveTarget(approverUser, agentUser string) (string, string, error) {
+	if !validUserName(approverUser) || !validUserName(agentUser) {
+		return "", "", fmt.Errorf("invalid approver or agent user name")
+	}
+	approver, err := user.Lookup(approverUser)
+	if err != nil {
+		return "", "", fmt.Errorf("look up approver: %w", err)
+	}
+	agent, err := user.Lookup(agentUser)
+	if err != nil {
+		return "", "", fmt.Errorf("look up agent user: %w", err)
+	}
+	if approver.Uid == "0" || agent.Uid == "0" || approver.Uid == agent.Uid {
+		return "", "", fmt.Errorf("approver and agent must be distinct non-root users")
+	}
+	home, err := filepath.EvalSymlinks(approver.HomeDir)
+	if err != nil || !filepath.IsAbs(home) || filepath.Clean(home) == "/" {
+		return "", "", fmt.Errorf("approver must have a valid home directory other than /")
+	}
+	return filepath.Clean(home), agent.Username, nil
+}
+
 func (m *Manager) Manage(action, home, agentUser string) (Result, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

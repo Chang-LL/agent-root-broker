@@ -11,6 +11,14 @@ HOSTCTL_BIN=
 HOSTCTL_SOURCE=
 TMP_DIR=
 ALLOW_APPROVER_HOME_RW=0
+STATE_PATH=/var/lib/hostctl/install-state
+STATE_PRESENT=0
+CREATED_AGENT_USER=0
+CREATED_AGENT_GROUP=0
+CREATED_REQUEST_GROUP=0
+CREATED_APPROVER_GROUP=0
+ADDED_AGENT_MEMBERSHIP=0
+ADDED_APPROVER_MEMBERSHIP=0
 
 usage() {
   echo "Usage: sudo ./install.sh --profile PROFILE --approver-user USER --agent-bin PATH [--agent-user USER] [--hostctl-bin PATH] [--allow-approver-home-rw]" >&2
@@ -81,8 +89,10 @@ PROFILE_SCRIPT="$PROFILE_DIR/profile.sh"
 [ -f "$PROFILE_SCRIPT" ] || { echo "integration profile is incomplete: $PROFILE_SCRIPT" >&2; exit 2; }
 # shellcheck source=profiles/grok/profile.sh
 . "$PROFILE_SCRIPT"
-[ "${PROFILE_CONTRACT_VERSION:-}" = 1 ] || { echo "unsupported profile contract for $PROFILE" >&2; exit 2; }
-for profile_function in profile_preflight profile_install profile_install_sudoers profile_print_next_steps; do
+[ "${PROFILE_CONTRACT_VERSION:-}" = 2 ] || { echo "unsupported profile contract for $PROFILE" >&2; exit 2; }
+for profile_function in \
+  profile_preflight profile_prepare profile_install profile_install_sudoers \
+  profile_uninstall profile_print_next_steps; do
   command -v "$profile_function" >/dev/null 2>&1 || {
     echo "integration profile is missing function: $profile_function" >&2
     exit 2
@@ -98,6 +108,22 @@ done
 
 valid_user() {
   printf '%s\n' "$1" | /bin/grep -Eq '^[a-z_][a-z0-9_-]*[$]?$'
+}
+
+is_group_member() {
+  /usr/bin/id -nG "$1" | /usr/bin/tr ' ' '\n' | /bin/grep -Fxq "$2"
+}
+
+state_value() {
+  /bin/sed -n "s/^$1=//p" "$STATE_PATH"
+}
+
+load_state_flag() {
+  state_flag_value=$(state_value "$1")
+  case "$state_flag_value" in
+    0|1) printf '%s\n' "$state_flag_value" ;;
+    *) echo "invalid install state flag: $1" >&2; return 1 ;;
+  esac
 }
 
 valid_user "$AGENT_USER" || { echo "invalid agent user name" >&2; exit 2; }
@@ -149,6 +175,33 @@ case "$HOSTCTL_VERSION" in
   *) echo "hostctl binary returned an invalid version" >&2; exit 2 ;;
 esac
 HOSTCTL_SHA256=$(/usr/bin/sha256sum "$HOSTCTL_BIN" | /usr/bin/cut -d' ' -f1)
+HOSTCTL_OBJECT="/usr/local/libexec/hostctl-bin-$HOSTCTL_SHA256"
+
+/bin/sed "s|@AGENT_USER@|$AGENT_USER|g; s|@APPROVER_USER@|$APPROVER_USER|g; s|@AGENT_EXECUTABLE@|$PROFILE_AGENT_EXECUTABLE|g" \
+  "$PROJECT_DIR/packaging/config/config.json.in" >"$TMP_DIR/config.json"
+"$HOSTCTL_BIN" hostctld --check-config "$TMP_DIR/config.json"
+profile_prepare "$AGENT_USER" "$TMP_DIR"
+
+if [ -f "$STATE_PATH" ]; then
+  [ "$(/usr/bin/stat -c '%u' "$STATE_PATH")" -eq 0 ] && [ $(( $(/usr/bin/stat -c '%a' "$STATE_PATH") % 100 )) -eq 0 ] || {
+    echo "refusing unsafe install state ownership or mode" >&2
+    exit 2
+  }
+  [ "$(state_value format)" = 1 ] || { echo "unsupported install state format" >&2; exit 2; }
+  [ "$(state_value profile)" = "$PROFILE" ] && [ "$(state_value agent_user)" = "$AGENT_USER" ] && \
+    [ "$(state_value approver_user)" = "$APPROVER_USER" ] || {
+    echo "installed identities differ; uninstall before changing profile or users" >&2
+    exit 2
+  }
+  CREATED_AGENT_USER=$(load_state_flag created_agent_user)
+  CREATED_AGENT_GROUP=$(load_state_flag created_agent_group)
+  CREATED_REQUEST_GROUP=$(load_state_flag created_request_group)
+  CREATED_APPROVER_GROUP=$(load_state_flag created_approver_group)
+  ADDED_AGENT_MEMBERSHIP=$(load_state_flag agent_membership_added)
+  ADDED_APPROVER_MEMBERSHIP=$(load_state_flag approver_membership_added)
+  STATE_PRESENT=1
+fi
+
 echo "Selected hostctl: $HOSTCTL_SOURCE"
 echo "  integration profile: $PROFILE"
 echo "  binary: $HOSTCTL_BIN"
@@ -156,37 +209,127 @@ echo "  version: $HOSTCTL_VERSION"
 echo "  host architecture: $(uname -m)"
 echo "  sha256: $HOSTCTL_SHA256"
 
-/usr/bin/getent group hostctl-agent >/dev/null || /usr/sbin/groupadd --system hostctl-agent
-/usr/bin/getent group hostctl-approver >/dev/null || /usr/sbin/groupadd --system hostctl-approver
+if ! /usr/bin/getent group hostctl-agent >/dev/null; then
+  /usr/sbin/groupadd --system hostctl-agent
+  [ "$STATE_PRESENT" -eq 1 ] || CREATED_REQUEST_GROUP=1
+fi
+if ! /usr/bin/getent group hostctl-approver >/dev/null; then
+  /usr/sbin/groupadd --system hostctl-approver
+  [ "$STATE_PRESENT" -eq 1 ] || CREATED_APPROVER_GROUP=1
+fi
 if ! /usr/bin/getent passwd "$AGENT_USER" >/dev/null; then
-  /usr/sbin/useradd --create-home --shell /usr/sbin/nologin --user-group "$AGENT_USER"
+  if /usr/bin/getent group "$AGENT_USER" >/dev/null; then
+    /usr/sbin/useradd --create-home --shell /usr/sbin/nologin --gid "$AGENT_USER" "$AGENT_USER"
+  else
+    /usr/sbin/useradd --create-home --shell /usr/sbin/nologin --user-group "$AGENT_USER"
+    [ "$STATE_PRESENT" -eq 1 ] || CREATED_AGENT_GROUP=1
+  fi
+  [ "$STATE_PRESENT" -eq 1 ] || CREATED_AGENT_USER=1
 fi
 [ "$(/usr/bin/id -u "$AGENT_USER")" -ne 0 ] || { echo "agent user must not be root" >&2; exit 2; }
 [ "$(/usr/bin/id -u "$AGENT_USER")" -ne "$(/usr/bin/id -u "$APPROVER_USER")" ] || {
   echo "agent user must be different from approver user" >&2
   exit 2
 }
-/usr/sbin/usermod -a -G hostctl-agent "$AGENT_USER"
-/usr/sbin/usermod -a -G hostctl-approver "$APPROVER_USER"
+if ! is_group_member "$AGENT_USER" hostctl-agent; then
+  /usr/sbin/usermod -a -G hostctl-agent "$AGENT_USER"
+  [ "$STATE_PRESENT" -eq 1 ] || ADDED_AGENT_MEMBERSHIP=1
+fi
+if ! is_group_member "$APPROVER_USER" hostctl-approver; then
+  /usr/sbin/usermod -a -G hostctl-approver "$APPROVER_USER"
+  [ "$STATE_PRESENT" -eq 1 ] || ADDED_APPROVER_MEMBERSHIP=1
+fi
+AGENT_HOME=$(/usr/bin/getent passwd "$AGENT_USER" | /usr/bin/cut -d: -f6)
+case "$AGENT_HOME" in
+  /*) [ "$AGENT_HOME" != / ] || { echo "agent home must not be /" >&2; exit 2; } ;;
+  *) echo "agent home must be absolute" >&2; exit 2 ;;
+esac
 
 /usr/bin/install -d -o root -g root -m 0755 /usr/local/libexec /usr/local/bin /usr/local/sbin
-/usr/bin/install -o root -g root -m 0755 "$HOSTCTL_BIN" /usr/local/libexec/hostctl-bin
+PREVIOUS_HOSTCTL_TARGET=
+if [ -e /usr/local/libexec/hostctl-bin ] || [ -L /usr/local/libexec/hostctl-bin ]; then
+  if [ -L /usr/local/libexec/hostctl-bin ]; then
+    PREVIOUS_HOSTCTL_TARGET=$(/usr/bin/readlink -f -- /usr/local/libexec/hostctl-bin)
+    printf '%s\n' "$PREVIOUS_HOSTCTL_TARGET" | /bin/grep -Eq '^/usr/local/libexec/hostctl-bin-[0-9a-f]{64}$' && \
+      [ -f "$PREVIOUS_HOSTCTL_TARGET" ] && [ -x "$PREVIOUS_HOSTCTL_TARGET" ] || {
+      echo "refusing invalid existing hostctl binary link" >&2
+      exit 2
+    }
+  else
+    PREVIOUS_HOSTCTL_SHA256=$(/usr/bin/sha256sum /usr/local/libexec/hostctl-bin | /usr/bin/cut -d' ' -f1)
+    PREVIOUS_HOSTCTL_TARGET="/usr/local/libexec/hostctl-bin-$PREVIOUS_HOSTCTL_SHA256"
+    if [ ! -e "$PREVIOUS_HOSTCTL_TARGET" ]; then
+      /usr/bin/install -o root -g root -m 0755 /usr/local/libexec/hostctl-bin "$PREVIOUS_HOSTCTL_TARGET"
+    fi
+  fi
+fi
+if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ "$PREVIOUS_HOSTCTL_TARGET" != "$HOSTCTL_OBJECT" ]; then
+  "$PREVIOUS_HOSTCTL_TARGET" hostctld --check-config "$TMP_DIR/config.json" || {
+    echo "new configuration is incompatible with the installed rollback binary" >&2
+    exit 2
+  }
+fi
+if [ -e "$HOSTCTL_OBJECT" ] || [ -L "$HOSTCTL_OBJECT" ]; then
+  [ ! -L "$HOSTCTL_OBJECT" ] && [ -f "$HOSTCTL_OBJECT" ] && \
+    [ "$(/usr/bin/sha256sum "$HOSTCTL_OBJECT" | /usr/bin/cut -d' ' -f1)" = "$HOSTCTL_SHA256" ] || {
+    echo "refusing invalid existing content-addressed hostctl binary" >&2
+    exit 2
+  }
+fi
+/usr/bin/install -o root -g root -m 0755 "$HOSTCTL_BIN" "$HOSTCTL_OBJECT"
+/bin/ln -sfn "$HOSTCTL_OBJECT" /usr/local/libexec/hostctl-bin
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
 profile_install "$AGENT_BIN" "$AGENT_USER" "$TMP_DIR"
 
-/bin/sed "s|@AGENT_USER@|$AGENT_USER|g; s|@APPROVER_USER@|$APPROVER_USER|g; s|@AGENT_EXECUTABLE@|$PROFILE_AGENT_EXECUTABLE|g" \
-  "$PROJECT_DIR/packaging/config/config.json.in" >"$TMP_DIR/config.json"
-/usr/bin/install -d -o root -g root -m 0755 /etc/hostctl
+/usr/bin/install -d -o root -g root -m 0755 /etc/hostctl /var/lib/hostctl
 /usr/bin/install -o root -g root -m 0644 "$TMP_DIR/config.json" /etc/hostctl/config.json
-profile_install_sudoers "$AGENT_USER" "$TMP_DIR"
+{
+  printf 'format=1\nprofile=%s\nagent_user=%s\napprover_user=%s\nagent_home=%s\n' \
+    "$PROFILE" "$AGENT_USER" "$APPROVER_USER" "$AGENT_HOME"
+  printf 'created_agent_user=%s\ncreated_agent_group=%s\ncreated_request_group=%s\ncreated_approver_group=%s\n' \
+    "$CREATED_AGENT_USER" "$CREATED_AGENT_GROUP" "$CREATED_REQUEST_GROUP" "$CREATED_APPROVER_GROUP"
+  printf 'agent_membership_added=%s\napprover_membership_added=%s\ninstalled_version=%s\n' \
+    "$ADDED_AGENT_MEMBERSHIP" "$ADDED_APPROVER_MEMBERSHIP" "$HOSTCTL_VERSION"
+  if [ "$STATE_PRESENT" -eq 1 ]; then
+    /bin/grep '^hostctl_object=' "$STATE_PATH" || true
+  fi
+  if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ "$PREVIOUS_HOSTCTL_TARGET" != "$HOSTCTL_OBJECT" ] && \
+    printf '%s\n' "$PREVIOUS_HOSTCTL_TARGET" | /bin/grep -Eq '^/usr/local/libexec/hostctl-bin-[0-9a-f]{64}$'; then
+    if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "hostctl_object=$PREVIOUS_HOSTCTL_TARGET" "$STATE_PATH"; then
+      printf 'hostctl_object=%s\n' "$PREVIOUS_HOSTCTL_TARGET"
+    fi
+  fi
+  if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "hostctl_object=$HOSTCTL_OBJECT" "$STATE_PATH"; then
+    printf 'hostctl_object=%s\n' "$HOSTCTL_OBJECT"
+  fi
+} >"$TMP_DIR/install-state"
+profile_install_sudoers "$TMP_DIR"
 /usr/sbin/visudo -cf /etc/sudoers
 
+/usr/bin/systemctl is-active --quiet hostctld.service && SERVICE_WAS_ACTIVE=1 || SERVICE_WAS_ACTIVE=0
+/usr/bin/systemctl is-enabled --quiet hostctld.service && SERVICE_WAS_ENABLED=1 || SERVICE_WAS_ENABLED=0
 /usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/hostctld.service" /etc/systemd/system/hostctld.service
 /usr/bin/systemctl daemon-reload
 /usr/bin/systemctl enable hostctld.service
-/usr/bin/systemctl restart hostctld.service
+if ! /usr/bin/systemctl restart hostctld.service; then
+  echo "new hostctld failed to start" >&2
+  if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ -e "$PREVIOUS_HOSTCTL_TARGET" ]; then
+    echo "restoring previous hostctl binary: $PREVIOUS_HOSTCTL_TARGET" >&2
+    /bin/ln -sfn "$PREVIOUS_HOSTCTL_TARGET" /usr/local/libexec/hostctl-bin
+    if [ "$SERVICE_WAS_ACTIVE" -eq 1 ]; then
+      /usr/bin/systemctl restart hostctld.service || true
+    fi
+  elif [ "$SERVICE_WAS_ENABLED" -eq 0 ]; then
+    /usr/bin/systemctl disable --now hostctld.service >/dev/null 2>&1 || true
+  fi
+  if [ "$HOSTCTL_OBJECT" != "$PREVIOUS_HOSTCTL_TARGET" ]; then
+    /bin/rm -f -- "$HOSTCTL_OBJECT"
+  fi
+  exit 1
+fi
+/usr/bin/install -o root -g root -m 0600 "$TMP_DIR/install-state" "$STATE_PATH"
 
 if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
   echo "WARNING: granting $AGENT_USER read/write access to the complete home of $APPROVER_USER." >&2

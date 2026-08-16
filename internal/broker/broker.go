@@ -136,12 +136,22 @@ func (b *Broker) HandleLifecycle(process proc.Identity, event agent.LifecycleEve
 	key := sessionKey(process, event.SessionID)
 	switch event.Kind {
 	case agent.SessionStarted:
-		b.sessions[key] = &Session{Process: process, SessionID: event.SessionID, UpdatedAt: now}
+		if state := b.sessions[key]; state == nil {
+			b.sessions[key] = &Session{Process: process, SessionID: event.SessionID, UpdatedAt: now}
+		} else {
+			state.UpdatedAt = now
+		}
 	case agent.TurnStarted:
 		state := b.sessions[key]
 		if state == nil {
-			state = &Session{Process: process, SessionID: event.SessionID}
-			b.sessions[key] = state
+			return brokerError("lifecycle_out_of_order", "turn started before its session")
+		}
+		if state.Active {
+			state.Active = false
+			state.UpdatedAt = now
+			b.revokeMessageLeasesLocked(process, event.SessionID)
+			b.cancelPendingLocked(process, event.SessionID, "ambiguous-turn-start")
+			return brokerError("lifecycle_ambiguous", "duplicate or out-of-order turn start")
 		}
 		b.cancelPendingLocked(process, event.SessionID, "new-turn")
 		state.Turn++
@@ -150,12 +160,13 @@ func (b *Broker) HandleLifecycle(process proc.Identity, event agent.LifecycleEve
 		b.revokeMessageLeasesLocked(process, event.SessionID)
 	case agent.TurnEnded:
 		state := b.sessions[key]
-		if state != nil {
-			state.Active = false
-			state.UpdatedAt = now
-			b.revokeMessageLeasesLocked(process, event.SessionID)
-			b.cancelPendingLocked(process, event.SessionID, "turn-ended")
+		if state == nil {
+			return brokerError("lifecycle_out_of_order", "turn ended before its session")
 		}
+		state.Active = false
+		state.UpdatedAt = now
+		b.revokeMessageLeasesLocked(process, event.SessionID)
+		b.cancelPendingLocked(process, event.SessionID, "turn-ended")
 	case agent.SessionEnded:
 		b.removeSessionLocked(process, event.SessionID, "session-end")
 	}

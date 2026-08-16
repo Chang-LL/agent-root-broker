@@ -314,18 +314,7 @@ func (s *listener) homeAccessTarget(uid uint32) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("look up approver: %w", err)
 	}
-	home, err := filepath.EvalSymlinks(approver.HomeDir)
-	if err != nil || !filepath.IsAbs(home) || filepath.Clean(home) == "/" {
-		return "", "", fmt.Errorf("approver must have a valid home directory other than /")
-	}
-	agent, err := user.Lookup(s.cfg.AgentUsers[0])
-	if err != nil {
-		return "", "", fmt.Errorf("look up agent user: %w", err)
-	}
-	if agent.Uid == "0" || agent.Uid == approver.Uid {
-		return "", "", fmt.Errorf("agent must be a separate non-root user")
-	}
-	return filepath.Clean(home), agent.Username, nil
+	return homeaccess.ResolveTarget(approver.Username, s.cfg.AgentUsers[0])
 }
 
 func defaultScope(scope string) string {
