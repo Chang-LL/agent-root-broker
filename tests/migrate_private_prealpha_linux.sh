@@ -38,8 +38,8 @@ cleanup() {
     /usr/local/libexec/grok-hostctl-bin
   /bin/rm -rf -- /etc/hostctl /run/hostctl /var/lib/hostctl /usr/local/share/hostctl
   /bin/rm -f -- /etc/grok/managed_config.toml
-  /usr/sbin/gpasswd -d "$APPROVER_USER" hostctl-approver >/dev/null 2>&1 || true
-  /usr/sbin/gpasswd -d "$AGENT_USER" hostctl-agent >/dev/null 2>&1 || true
+  /usr/bin/gpasswd -d "$APPROVER_USER" hostctl-approver >/dev/null 2>&1 || true
+  /usr/bin/gpasswd -d "$AGENT_USER" hostctl-agent >/dev/null 2>&1 || true
   /usr/sbin/groupdel hostctl-approver >/dev/null 2>&1 || true
   /usr/sbin/groupdel hostctl-agent >/dev/null 2>&1 || true
   if [ "$AGENT_CREATED" -eq 1 ]; then

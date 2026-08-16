@@ -220,8 +220,8 @@ fi
 /bin/rm -rf -- /usr/local/share/hostctl
 /bin/rm -f -- /run/hostctl/request.sock /run/hostctl/admin.sock
 
-/usr/sbin/gpasswd -d "$APPROVER_USER" hostctl-approver >/dev/null
-/usr/sbin/gpasswd -d "$AGENT_USER" hostctl-agent >/dev/null
+/usr/bin/gpasswd -d "$APPROVER_USER" hostctl-approver >/dev/null
+/usr/bin/gpasswd -d "$AGENT_USER" hostctl-agent >/dev/null
 /usr/sbin/groupdel hostctl-approver
 /usr/sbin/groupdel hostctl-agent
 
