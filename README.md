@@ -140,7 +140,9 @@ For upgrades, the previous `--grok-bin PATH` form remains a compatibility alias 
 
 The private pre-alpha project used the conflicting name `hostctl`. That installation must be
 removed before installing `rootbroker`; the installer detects it and fails with migration
-instructions. See [MIGRATION.md](MIGRATION.md). No legacy command aliases are installed.
+instructions. Stateful previews use their installed uninstaller, while the earliest stateless
+preview uses the fail-closed `migrate-private-prealpha.sh` tool. See [MIGRATION.md](MIGRATION.md).
+No legacy command aliases are installed.
 
 The installer:
 

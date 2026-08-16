@@ -5,6 +5,13 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Fixed
+
+- Added a fail-closed migration tool and privileged system test for the earliest stateless private
+  pre-alpha installations, which predated the root-owned `hostctl-uninstall` command.
+- Preserve semantic prerelease separators in future Debian asset filenames and mark prerelease tags
+  correctly in the GitHub release workflow.
+
 ## [0.1.0-alpha.1] - 2026-08-16
 
 ### Changed

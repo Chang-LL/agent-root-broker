@@ -47,10 +47,12 @@ PACKAGE="$TEST_DIR/first/rootbroker_0.1.0-alpha.1_amd64.deb"
 [ -f "$PACKAGE" ] || { echo "expected package was not built" >&2; exit 1; }
 dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Package: rootbroker'
 dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/sbin/rootbroker-setup'
+dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/sbin/rootbroker-migrate-private-prealpha'
 dpkg -i "$PACKAGE"
 PACKAGE_INSTALLED=1
 [ "$(/usr/bin/rootbroker version)" = 'rootbroker v0.1.0-alpha.1' ]
 /usr/sbin/rootbroker-setup --help >/dev/null
+/usr/sbin/rootbroker-migrate-private-prealpha --help >/dev/null
 /usr/sbin/rootbroker-setup \
   --profile grok \
   --approver-user "$APPROVER_USER" \
