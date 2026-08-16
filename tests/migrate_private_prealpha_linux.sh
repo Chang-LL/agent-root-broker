@@ -114,7 +114,8 @@ cat >"$TEST_DIR/config.json" <<EOF
   "request_group": "hostctl-agent",
   "admin_group": "hostctl-approver",
   "agent_users": ["$AGENT_USER"],
-  "approver_users": ["$APPROVER_USER"]
+  "approver_users": ["$APPROVER_USER"],
+  "agent_executables": ["/usr/local/libexec/grok-hostctl-bin"]
 }
 EOF
 /usr/bin/install -o root -g root -m 0644 "$TEST_DIR/config.json" /etc/hostctl/config.json
