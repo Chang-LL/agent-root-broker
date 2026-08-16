@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"hostctl/internal/agent"
-	"hostctl/internal/approval"
-	"hostctl/internal/config"
-	"hostctl/internal/executor"
-	"hostctl/internal/proc"
+	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/rootbroker/internal/approval"
+	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/executor"
+	"github.com/Chang-LL/rootbroker/internal/proc"
 )
 
 type Error struct {
@@ -463,7 +463,7 @@ func (b *Broker) audit(event string, fields map[string]any) {
 		payload[key] = value
 	}
 	encoded, _ := json.Marshal(payload)
-	log.Printf("hostctl.audit %s", encoded)
+	log.Printf("rootbroker.audit %s", encoded)
 }
 
 func randomID() (string, error) {

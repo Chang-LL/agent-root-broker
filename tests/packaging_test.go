@@ -19,10 +19,10 @@ func TestGrokManagedConfigMarkersFailClosed(t *testing.T) {
 		valid   bool
 	}{
 		{name: "absent", content: "other = true\n", valid: true},
-		{name: "managed", content: "# BEGIN hostctl managed hooks\nitem = true\n# END hostctl managed hooks\n", valid: true},
-		{name: "unclosed", content: "# BEGIN hostctl managed hooks\n", valid: false},
-		{name: "reversed", content: "# END hostctl managed hooks\n# BEGIN hostctl managed hooks\n", valid: false},
-		{name: "duplicate", content: "# BEGIN hostctl managed hooks\n# END hostctl managed hooks\n# BEGIN hostctl managed hooks\n# END hostctl managed hooks\n", valid: false},
+		{name: "managed", content: "# BEGIN rootbroker managed hooks\nitem = true\n# END rootbroker managed hooks\n", valid: true},
+		{name: "unclosed", content: "# BEGIN rootbroker managed hooks\n", valid: false},
+		{name: "reversed", content: "# END rootbroker managed hooks\n# BEGIN rootbroker managed hooks\n", valid: false},
+		{name: "duplicate", content: "# BEGIN rootbroker managed hooks\n# END rootbroker managed hooks\n# BEGIN rootbroker managed hooks\n# END rootbroker managed hooks\n", valid: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGrokManagedConfigMarkersFailClosed(t *testing.T) {
 			if err := os.WriteFile(config, []byte(test.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			command := exec.Command("/bin/sh", "-c", `. "$1"; profile_validate_managed_config "$2"`, "hostctl-profile-test", profile, config)
+			command := exec.Command("/bin/sh", "-c", `. "$1"; profile_validate_managed_config "$2"`, "rootbroker-profile-test", profile, config)
 			err := command.Run()
 			if (err == nil) != test.valid {
 				t.Fatalf("valid=%v err=%v", test.valid, err)
@@ -74,32 +74,34 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 		}
 	}
 	for _, wanted := range []string{
-		"/usr/local/libexec/hostctl-bin",
-		"/usr/local/sbin/hostctl-uninstall",
-		"HOSTCTL_OBJECT",
-		"hostctld --check-config",
+		"/usr/local/libexec/rootbroker-bin",
+		"/usr/local/sbin/rootbroker-uninstall",
+		"ROOTBROKER_OBJECT",
+		"rootbrokerd --check-config",
 		"profile_install_sudoers",
 	} {
 		if !strings.Contains(installer, wanted) {
 			t.Fatalf("installer is missing %q", wanted)
 		}
 	}
-	for _, wanted := range []string{"hostctl-maint", "profile_uninstall", "--purge-agent-account", "Agent home data is always preserved"} {
+	for _, wanted := range []string{"rootbroker-maint", "profile_uninstall", "--purge-agent-account", "Agent home data is always preserved"} {
 		if !strings.Contains(uninstaller, wanted) {
 			t.Fatalf("uninstaller is missing %q", wanted)
 		}
 	}
-	if strings.Contains(installer, "src/hostctl") || strings.Contains(installer, "python") {
+	if strings.Contains(installer, "src/rootbroker") || strings.Contains(installer, "python") {
 		t.Fatal("installer still depends on the Python implementation")
 	}
-	if strings.Contains(installer, `dist/hostctl-linux-`) {
+	if strings.Contains(installer, `dist/rootbroker-linux-`) {
 		t.Fatal("source installer silently selects an ignored dist artifact")
 	}
 	for _, wanted := range []string{
 		"source checkout detected but Go is unavailable",
-		"explicit --hostctl-bin",
-		"Selected hostctl:",
-		"HOSTCTL_SHA256",
+		"explicit --rootbroker-bin",
+		"Selected rootbroker:",
+		"ROOTBROKER_SHA256",
+		"/var/lib/hostctl/install-state",
+		"See MIGRATION.md",
 	} {
 		if !strings.Contains(installer, wanted) {
 			t.Fatalf("installer provenance output is missing %q", wanted)
@@ -112,7 +114,7 @@ func TestInstallerKeepsGrokDetailsBehindProfile(t *testing.T) {
 	profile := projectFile(t, "profiles", "grok", "profile.sh")
 	configTemplate := projectFile(t, "packaging", "config", "config.json.in")
 	for _, detail := range []string{
-		"/etc/grok", "managed_config.toml", "hostctl-grok-hook", "grok-agent-launch", "grok-safe",
+		"/etc/grok", "managed_config.toml", "rootbroker-grok-hook", "grok-agent-launch", "grok-safe",
 	} {
 		if strings.Contains(installer, detail) {
 			t.Fatalf("Grok detail %q leaked into core installer", detail)
@@ -133,7 +135,7 @@ func TestInstallerKeepsGrokDetailsBehindProfile(t *testing.T) {
 			t.Fatalf("core installer profile guard is missing %q", wanted)
 		}
 	}
-	if !strings.Contains(configTemplate, "@AGENT_EXECUTABLE@") || strings.Contains(configTemplate, "grok-hostctl-bin") {
+	if !strings.Contains(configTemplate, "@AGENT_EXECUTABLE@") || strings.Contains(configTemplate, "grok-rootbroker-bin") {
 		t.Fatal("core configuration template still owns a Grok executable path")
 	}
 	for _, legacyPath := range [][]string{{"grok"}, {"packaging", "bin"}} {
@@ -148,7 +150,7 @@ func TestApproverHomeAccessIsExplicitAndACLBased(t *testing.T) {
 	admin := projectFile(t, "internal", "commands", "admin.go")
 	for _, wanted := range []string{
 		"--allow-approver-home-rw",
-		"hostctl-admin home-access grant",
+		"rootbroker-admin home-access grant",
 		"agent user must be different from approver user",
 	} {
 		if !strings.Contains(installer, wanted) {
@@ -182,7 +184,7 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(release, "uninstall.sh") {
 		t.Fatal("release archive omits uninstaller")
 	}
-	if !strings.Contains(release, `release_root="$RUNNER_TEMP/hostctl-release"`) ||
+	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
 		!strings.Contains(release, `git status --porcelain`) {
 		t.Fatal("release build does not keep generated files outside the source tree")
 	}
@@ -209,7 +211,7 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	}
 	for _, filename := range []string{
 		"CONTRIBUTING.md", "SUPPORT.md", "COMPATIBILITY.md", "UPGRADE.md", "UNINSTALL.md",
-		"TROUBLESHOOTING.md", "THREAT_MODEL.md", "CHANGELOG.md",
+		"MIGRATION.md", "TROUBLESHOOTING.md", "THREAT_MODEL.md", "CHANGELOG.md",
 	} {
 		if !strings.Contains(release, filename) {
 			t.Fatalf("release archive omits %s", filename)

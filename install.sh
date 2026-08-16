@@ -7,11 +7,11 @@ PROFILE_DIR=
 AGENT_USER=
 APPROVER_USER=
 AGENT_BIN=
-HOSTCTL_BIN=
-HOSTCTL_SOURCE=
+ROOTBROKER_BIN=
+ROOTBROKER_SOURCE=
 TMP_DIR=
 ALLOW_APPROVER_HOME_RW=0
-STATE_PATH=/var/lib/hostctl/install-state
+STATE_PATH=/var/lib/rootbroker/install-state
 STATE_PRESENT=0
 CREATED_AGENT_USER=0
 CREATED_AGENT_GROUP=0
@@ -21,7 +21,7 @@ ADDED_AGENT_MEMBERSHIP=0
 ADDED_APPROVER_MEMBERSHIP=0
 
 usage() {
-  echo "Usage: sudo ./install.sh --profile PROFILE --approver-user USER --agent-bin PATH [--agent-user USER] [--hostctl-bin PATH] [--allow-approver-home-rw]" >&2
+  echo "Usage: sudo ./install.sh --profile PROFILE --approver-user USER --agent-bin PATH [--agent-user USER] [--rootbroker-bin PATH] [--allow-approver-home-rw]" >&2
   echo "       sudo ./install.sh --approver-user USER --grok-bin PATH [...]  # Grok compatibility alias" >&2
 }
 
@@ -54,9 +54,9 @@ while [ "$#" -gt 0 ]; do
       AGENT_BIN=$2
       shift 2
       ;;
-    --hostctl-bin)
+    --rootbroker-bin)
       [ "$#" -ge 2 ] || { usage; exit 2; }
-      HOSTCTL_BIN=$2
+      ROOTBROKER_BIN=$2
       shift 2
       ;;
     --allow-approver-home-rw)
@@ -75,6 +75,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || { echo "install.sh must run as root" >&2; exit 1; }
+
+if [ -f /var/lib/hostctl/install-state ] || [ -e /etc/systemd/system/hostctld.service ]; then
+  echo "A private pre-alpha hostctl installation is still present." >&2
+  echo "Close active Grok sessions, run: sudo /usr/local/sbin/hostctl-uninstall" >&2
+  echo "Then rerun this installer. See MIGRATION.md; add --allow-approver-home-rw to restore optional full-home access." >&2
+  exit 2
+fi
 
 case "$PROFILE" in
   grok)
@@ -147,40 +154,40 @@ profile_preflight
 TMP_DIR=$(/usr/bin/mktemp -d)
 trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
 
-if [ -n "$HOSTCTL_BIN" ]; then
-  HOSTCTL_SOURCE="explicit --hostctl-bin"
+if [ -n "$ROOTBROKER_BIN" ]; then
+  ROOTBROKER_SOURCE="explicit --rootbroker-bin"
 elif [ -f "$PROJECT_DIR/go.mod" ]; then
   if command -v go >/dev/null 2>&1; then
     (
       cd "$PROJECT_DIR"
-      CGO_ENABLED=0 go build -trimpath -o "$TMP_DIR/hostctl" ./cmd/hostctl
+      CGO_ENABLED=0 go build -trimpath -o "$TMP_DIR/rootbroker" ./cmd/rootbroker
     )
-    HOSTCTL_BIN="$TMP_DIR/hostctl"
-    HOSTCTL_SOURCE="source build from $PROJECT_DIR"
+    ROOTBROKER_BIN="$TMP_DIR/rootbroker"
+    ROOTBROKER_SOURCE="source build from $PROJECT_DIR"
   else
-    echo "source checkout detected but Go is unavailable; pass --hostctl-bin explicitly or use a release archive" >&2
+    echo "source checkout detected but Go is unavailable; pass --rootbroker-bin explicitly or use a release archive" >&2
     exit 2
   fi
-elif [ -x "$PROJECT_DIR/hostctl" ] && [ -f "$PROJECT_DIR/hostctl" ]; then
-  HOSTCTL_BIN="$PROJECT_DIR/hostctl"
-  HOSTCTL_SOURCE="release archive"
+elif [ -x "$PROJECT_DIR/rootbroker" ] && [ -f "$PROJECT_DIR/rootbroker" ]; then
+  ROOTBROKER_BIN="$PROJECT_DIR/rootbroker"
+  ROOTBROKER_SOURCE="release archive"
 else
-  echo "hostctl binary not found; use a release archive or pass --hostctl-bin PATH" >&2
+  echo "rootbroker binary not found; use a release archive or pass --rootbroker-bin PATH" >&2
   exit 2
 fi
-[ -f "$HOSTCTL_BIN" ] && [ -x "$HOSTCTL_BIN" ] || { echo "hostctl binary is not an executable file" >&2; exit 2; }
-HOSTCTL_BIN=$(/usr/bin/readlink -f -- "$HOSTCTL_BIN")
-HOSTCTL_VERSION=$("$HOSTCTL_BIN" version) || { echo "hostctl binary cannot run on this host" >&2; exit 2; }
-case "$HOSTCTL_VERSION" in
-  "hostctl "*) ;;
-  *) echo "hostctl binary returned an invalid version" >&2; exit 2 ;;
+[ -f "$ROOTBROKER_BIN" ] && [ -x "$ROOTBROKER_BIN" ] || { echo "rootbroker binary is not an executable file" >&2; exit 2; }
+ROOTBROKER_BIN=$(/usr/bin/readlink -f -- "$ROOTBROKER_BIN")
+ROOTBROKER_VERSION=$("$ROOTBROKER_BIN" version) || { echo "rootbroker binary cannot run on this host" >&2; exit 2; }
+case "$ROOTBROKER_VERSION" in
+  "rootbroker "*) ;;
+  *) echo "rootbroker binary returned an invalid version" >&2; exit 2 ;;
 esac
-HOSTCTL_SHA256=$(/usr/bin/sha256sum "$HOSTCTL_BIN" | /usr/bin/cut -d' ' -f1)
-HOSTCTL_OBJECT="/usr/local/libexec/hostctl-bin-$HOSTCTL_SHA256"
+ROOTBROKER_SHA256=$(/usr/bin/sha256sum "$ROOTBROKER_BIN" | /usr/bin/cut -d' ' -f1)
+ROOTBROKER_OBJECT="/usr/local/libexec/rootbroker-bin-$ROOTBROKER_SHA256"
 
 /bin/sed "s|@AGENT_USER@|$AGENT_USER|g; s|@APPROVER_USER@|$APPROVER_USER|g; s|@AGENT_EXECUTABLE@|$PROFILE_AGENT_EXECUTABLE|g" \
   "$PROJECT_DIR/packaging/config/config.json.in" >"$TMP_DIR/config.json"
-"$HOSTCTL_BIN" hostctld --check-config "$TMP_DIR/config.json"
+"$ROOTBROKER_BIN" rootbrokerd --check-config "$TMP_DIR/config.json"
 profile_prepare "$AGENT_USER" "$TMP_DIR"
 
 if [ -f "$STATE_PATH" ]; then
@@ -203,19 +210,19 @@ if [ -f "$STATE_PATH" ]; then
   STATE_PRESENT=1
 fi
 
-echo "Selected hostctl: $HOSTCTL_SOURCE"
+echo "Selected rootbroker: $ROOTBROKER_SOURCE"
 echo "  integration profile: $PROFILE"
-echo "  binary: $HOSTCTL_BIN"
-echo "  version: $HOSTCTL_VERSION"
+echo "  binary: $ROOTBROKER_BIN"
+echo "  version: $ROOTBROKER_VERSION"
 echo "  host architecture: $(uname -m)"
-echo "  sha256: $HOSTCTL_SHA256"
+echo "  sha256: $ROOTBROKER_SHA256"
 
-if ! /usr/bin/getent group hostctl-agent >/dev/null; then
-  /usr/sbin/groupadd --system hostctl-agent
+if ! /usr/bin/getent group rootbroker-agent >/dev/null; then
+  /usr/sbin/groupadd --system rootbroker-agent
   [ "$STATE_PRESENT" -eq 1 ] || CREATED_REQUEST_GROUP=1
 fi
-if ! /usr/bin/getent group hostctl-approver >/dev/null; then
-  /usr/sbin/groupadd --system hostctl-approver
+if ! /usr/bin/getent group rootbroker-approver >/dev/null; then
+  /usr/sbin/groupadd --system rootbroker-approver
   [ "$STATE_PRESENT" -eq 1 ] || CREATED_APPROVER_GROUP=1
 fi
 if ! /usr/bin/getent passwd "$AGENT_USER" >/dev/null; then
@@ -232,12 +239,12 @@ fi
   echo "agent user must be different from approver user" >&2
   exit 2
 }
-if ! is_group_member "$AGENT_USER" hostctl-agent; then
-  /usr/sbin/usermod -a -G hostctl-agent "$AGENT_USER"
+if ! is_group_member "$AGENT_USER" rootbroker-agent; then
+  /usr/sbin/usermod -a -G rootbroker-agent "$AGENT_USER"
   [ "$STATE_PRESENT" -eq 1 ] || ADDED_AGENT_MEMBERSHIP=1
 fi
-if ! is_group_member "$APPROVER_USER" hostctl-approver; then
-  /usr/sbin/usermod -a -G hostctl-approver "$APPROVER_USER"
+if ! is_group_member "$APPROVER_USER" rootbroker-approver; then
+  /usr/sbin/usermod -a -G rootbroker-approver "$APPROVER_USER"
   [ "$STATE_PRESENT" -eq 1 ] || ADDED_APPROVER_MEMBERSHIP=1
 fi
 AGENT_HOME=$(/usr/bin/getent passwd "$AGENT_USER" | /usr/bin/cut -d: -f6)
@@ -247,82 +254,82 @@ case "$AGENT_HOME" in
 esac
 
 /usr/bin/install -d -o root -g root -m 0755 /usr/local/libexec /usr/local/bin /usr/local/sbin
-PREVIOUS_HOSTCTL_TARGET=
-if [ -e /usr/local/libexec/hostctl-bin ] || [ -L /usr/local/libexec/hostctl-bin ]; then
-  if [ -L /usr/local/libexec/hostctl-bin ]; then
-    PREVIOUS_HOSTCTL_TARGET=$(/usr/bin/readlink -f -- /usr/local/libexec/hostctl-bin)
-    printf '%s\n' "$PREVIOUS_HOSTCTL_TARGET" | /bin/grep -Eq '^/usr/local/libexec/hostctl-bin-[0-9a-f]{64}$' && \
-      [ -f "$PREVIOUS_HOSTCTL_TARGET" ] && [ -x "$PREVIOUS_HOSTCTL_TARGET" ] || {
-      echo "refusing invalid existing hostctl binary link" >&2
+PREVIOUS_ROOTBROKER_TARGET=
+if [ -e /usr/local/libexec/rootbroker-bin ] || [ -L /usr/local/libexec/rootbroker-bin ]; then
+  if [ -L /usr/local/libexec/rootbroker-bin ]; then
+    PREVIOUS_ROOTBROKER_TARGET=$(/usr/bin/readlink -f -- /usr/local/libexec/rootbroker-bin)
+    printf '%s\n' "$PREVIOUS_ROOTBROKER_TARGET" | /bin/grep -Eq '^/usr/local/libexec/rootbroker-bin-[0-9a-f]{64}$' && \
+      [ -f "$PREVIOUS_ROOTBROKER_TARGET" ] && [ -x "$PREVIOUS_ROOTBROKER_TARGET" ] || {
+      echo "refusing invalid existing rootbroker binary link" >&2
       exit 2
     }
   else
-    PREVIOUS_HOSTCTL_SHA256=$(/usr/bin/sha256sum /usr/local/libexec/hostctl-bin | /usr/bin/cut -d' ' -f1)
-    PREVIOUS_HOSTCTL_TARGET="/usr/local/libexec/hostctl-bin-$PREVIOUS_HOSTCTL_SHA256"
-    if [ ! -e "$PREVIOUS_HOSTCTL_TARGET" ]; then
-      /usr/bin/install -o root -g root -m 0755 /usr/local/libexec/hostctl-bin "$PREVIOUS_HOSTCTL_TARGET"
+    PREVIOUS_ROOTBROKER_SHA256=$(/usr/bin/sha256sum /usr/local/libexec/rootbroker-bin | /usr/bin/cut -d' ' -f1)
+    PREVIOUS_ROOTBROKER_TARGET="/usr/local/libexec/rootbroker-bin-$PREVIOUS_ROOTBROKER_SHA256"
+    if [ ! -e "$PREVIOUS_ROOTBROKER_TARGET" ]; then
+      /usr/bin/install -o root -g root -m 0755 /usr/local/libexec/rootbroker-bin "$PREVIOUS_ROOTBROKER_TARGET"
     fi
   fi
 fi
-if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ "$PREVIOUS_HOSTCTL_TARGET" != "$HOSTCTL_OBJECT" ]; then
-  "$PREVIOUS_HOSTCTL_TARGET" hostctld --check-config "$TMP_DIR/config.json" || {
+if [ -n "$PREVIOUS_ROOTBROKER_TARGET" ] && [ "$PREVIOUS_ROOTBROKER_TARGET" != "$ROOTBROKER_OBJECT" ]; then
+  "$PREVIOUS_ROOTBROKER_TARGET" rootbrokerd --check-config "$TMP_DIR/config.json" || {
     echo "new configuration is incompatible with the installed rollback binary" >&2
     exit 2
   }
 fi
-if [ -e "$HOSTCTL_OBJECT" ] || [ -L "$HOSTCTL_OBJECT" ]; then
-  [ ! -L "$HOSTCTL_OBJECT" ] && [ -f "$HOSTCTL_OBJECT" ] && \
-    [ "$(/usr/bin/sha256sum "$HOSTCTL_OBJECT" | /usr/bin/cut -d' ' -f1)" = "$HOSTCTL_SHA256" ] || {
-    echo "refusing invalid existing content-addressed hostctl binary" >&2
+if [ -e "$ROOTBROKER_OBJECT" ] || [ -L "$ROOTBROKER_OBJECT" ]; then
+  [ ! -L "$ROOTBROKER_OBJECT" ] && [ -f "$ROOTBROKER_OBJECT" ] && \
+    [ "$(/usr/bin/sha256sum "$ROOTBROKER_OBJECT" | /usr/bin/cut -d' ' -f1)" = "$ROOTBROKER_SHA256" ] || {
+    echo "refusing invalid existing content-addressed rootbroker binary" >&2
     exit 2
   }
 fi
-/usr/bin/install -o root -g root -m 0755 "$HOSTCTL_BIN" "$HOSTCTL_OBJECT"
-/bin/ln -sfn "$HOSTCTL_OBJECT" /usr/local/libexec/hostctl-bin
-/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl
-/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
-/bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
+/usr/bin/install -o root -g root -m 0755 "$ROOTBROKER_BIN" "$ROOTBROKER_OBJECT"
+/bin/ln -sfn "$ROOTBROKER_OBJECT" /usr/local/libexec/rootbroker-bin
+/bin/ln -sfn /usr/local/libexec/rootbroker-bin /usr/local/bin/rootbroker
+/bin/ln -sfn /usr/local/libexec/rootbroker-bin /usr/local/bin/rootbroker-admin
+/bin/ln -sfn /usr/local/libexec/rootbroker-bin /usr/local/sbin/rootbrokerd
 profile_install "$AGENT_BIN" "$AGENT_USER" "$TMP_DIR"
-/usr/bin/install -d -o root -g root -m 0755 /usr/local/share/hostctl/installer/profiles/grok
-/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/uninstall.sh" /usr/local/share/hostctl/installer/uninstall.sh
-/usr/bin/install -o root -g root -m 0644 "$PROFILE_SCRIPT" /usr/local/share/hostctl/installer/profiles/grok/profile.sh
-/bin/ln -sfn /usr/local/share/hostctl/installer/uninstall.sh /usr/local/sbin/hostctl-uninstall
+/usr/bin/install -d -o root -g root -m 0755 /usr/local/share/rootbroker/installer/profiles/grok
+/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/uninstall.sh" /usr/local/share/rootbroker/installer/uninstall.sh
+/usr/bin/install -o root -g root -m 0644 "$PROFILE_SCRIPT" /usr/local/share/rootbroker/installer/profiles/grok/profile.sh
+/bin/ln -sfn /usr/local/share/rootbroker/installer/uninstall.sh /usr/local/sbin/rootbroker-uninstall
 
-/usr/bin/install -d -o root -g root -m 0755 /etc/hostctl /var/lib/hostctl
-/usr/bin/install -o root -g root -m 0644 "$TMP_DIR/config.json" /etc/hostctl/config.json
+/usr/bin/install -d -o root -g root -m 0755 /etc/rootbroker /var/lib/rootbroker
+/usr/bin/install -o root -g root -m 0644 "$TMP_DIR/config.json" /etc/rootbroker/config.json
 {
   printf 'format=1\nprofile=%s\nagent_user=%s\napprover_user=%s\nagent_home=%s\n' \
     "$PROFILE" "$AGENT_USER" "$APPROVER_USER" "$AGENT_HOME"
   printf 'created_agent_user=%s\ncreated_agent_group=%s\ncreated_request_group=%s\ncreated_approver_group=%s\n' \
     "$CREATED_AGENT_USER" "$CREATED_AGENT_GROUP" "$CREATED_REQUEST_GROUP" "$CREATED_APPROVER_GROUP"
   printf 'agent_membership_added=%s\napprover_membership_added=%s\ninstalled_version=%s\n' \
-    "$ADDED_AGENT_MEMBERSHIP" "$ADDED_APPROVER_MEMBERSHIP" "$HOSTCTL_VERSION"
+    "$ADDED_AGENT_MEMBERSHIP" "$ADDED_APPROVER_MEMBERSHIP" "$ROOTBROKER_VERSION"
   if [ "$STATE_PRESENT" -eq 1 ]; then
-    /bin/grep '^hostctl_object=' "$STATE_PATH" || true
+    /bin/grep '^rootbroker_object=' "$STATE_PATH" || true
   fi
-  if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ "$PREVIOUS_HOSTCTL_TARGET" != "$HOSTCTL_OBJECT" ] && \
-    printf '%s\n' "$PREVIOUS_HOSTCTL_TARGET" | /bin/grep -Eq '^/usr/local/libexec/hostctl-bin-[0-9a-f]{64}$'; then
-    if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "hostctl_object=$PREVIOUS_HOSTCTL_TARGET" "$STATE_PATH"; then
-      printf 'hostctl_object=%s\n' "$PREVIOUS_HOSTCTL_TARGET"
+  if [ -n "$PREVIOUS_ROOTBROKER_TARGET" ] && [ "$PREVIOUS_ROOTBROKER_TARGET" != "$ROOTBROKER_OBJECT" ] && \
+    printf '%s\n' "$PREVIOUS_ROOTBROKER_TARGET" | /bin/grep -Eq '^/usr/local/libexec/rootbroker-bin-[0-9a-f]{64}$'; then
+    if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "rootbroker_object=$PREVIOUS_ROOTBROKER_TARGET" "$STATE_PATH"; then
+      printf 'rootbroker_object=%s\n' "$PREVIOUS_ROOTBROKER_TARGET"
     fi
   fi
-  if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "hostctl_object=$HOSTCTL_OBJECT" "$STATE_PATH"; then
-    printf 'hostctl_object=%s\n' "$HOSTCTL_OBJECT"
+  if [ "$STATE_PRESENT" -eq 0 ] || ! /bin/grep -Fxq "rootbroker_object=$ROOTBROKER_OBJECT" "$STATE_PATH"; then
+    printf 'rootbroker_object=%s\n' "$ROOTBROKER_OBJECT"
   fi
 } >"$TMP_DIR/install-state"
 profile_install_sudoers "$TMP_DIR"
 /usr/sbin/visudo -cf /etc/sudoers
 
-/usr/bin/systemctl is-active --quiet hostctld.service && SERVICE_WAS_ACTIVE=1 || SERVICE_WAS_ACTIVE=0
-/usr/bin/systemctl is-enabled --quiet hostctld.service && SERVICE_WAS_ENABLED=1 || SERVICE_WAS_ENABLED=0
-/usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/hostctld.service" /etc/systemd/system/hostctld.service
+/usr/bin/systemctl is-active --quiet rootbrokerd.service && SERVICE_WAS_ACTIVE=1 || SERVICE_WAS_ACTIVE=0
+/usr/bin/systemctl is-enabled --quiet rootbrokerd.service && SERVICE_WAS_ENABLED=1 || SERVICE_WAS_ENABLED=0
+/usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/rootbrokerd.service" /etc/systemd/system/rootbrokerd.service
 /usr/bin/systemctl daemon-reload
-/usr/bin/systemctl enable hostctld.service
+/usr/bin/systemctl enable rootbrokerd.service
 SERVICE_READY=0
-if /usr/bin/systemctl restart hostctld.service; then
+if /usr/bin/systemctl restart rootbrokerd.service; then
   for _ in $(/usr/bin/seq 1 100); do
-    if /usr/bin/systemctl is-active --quiet hostctld.service && \
-      [ -S /run/hostctl/request.sock ] && [ -S /run/hostctl/admin.sock ]; then
+    if /usr/bin/systemctl is-active --quiet rootbrokerd.service && \
+      [ -S /run/rootbroker/request.sock ] && [ -S /run/rootbroker/admin.sock ]; then
       SERVICE_READY=1
       break
     fi
@@ -330,19 +337,19 @@ if /usr/bin/systemctl restart hostctld.service; then
   done
 fi
 if [ "$SERVICE_READY" -ne 1 ]; then
-  echo "new hostctld failed to start" >&2
-  if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ -e "$PREVIOUS_HOSTCTL_TARGET" ]; then
-    echo "restoring previous hostctl binary: $PREVIOUS_HOSTCTL_TARGET" >&2
-    /bin/ln -sfn "$PREVIOUS_HOSTCTL_TARGET" /usr/local/libexec/hostctl-bin
+  echo "new rootbrokerd failed to start" >&2
+  if [ -n "$PREVIOUS_ROOTBROKER_TARGET" ] && [ -e "$PREVIOUS_ROOTBROKER_TARGET" ]; then
+    echo "restoring previous rootbroker binary: $PREVIOUS_ROOTBROKER_TARGET" >&2
+    /bin/ln -sfn "$PREVIOUS_ROOTBROKER_TARGET" /usr/local/libexec/rootbroker-bin
     if [ "$SERVICE_WAS_ACTIVE" -eq 1 ]; then
-      /usr/bin/systemctl reset-failed hostctld.service >/dev/null 2>&1 || true
-      /usr/bin/systemctl restart hostctld.service || true
+      /usr/bin/systemctl reset-failed rootbrokerd.service >/dev/null 2>&1 || true
+      /usr/bin/systemctl restart rootbrokerd.service || true
     fi
   elif [ "$SERVICE_WAS_ENABLED" -eq 0 ]; then
-    /usr/bin/systemctl disable --now hostctld.service >/dev/null 2>&1 || true
+    /usr/bin/systemctl disable --now rootbrokerd.service >/dev/null 2>&1 || true
   fi
-  if [ "$HOSTCTL_OBJECT" != "$PREVIOUS_HOSTCTL_TARGET" ]; then
-    /bin/rm -f -- "$HOSTCTL_OBJECT"
+  if [ "$ROOTBROKER_OBJECT" != "$PREVIOUS_ROOTBROKER_TARGET" ]; then
+    /bin/rm -f -- "$ROOTBROKER_OBJECT"
   fi
   exit 1
 fi
@@ -352,13 +359,13 @@ if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
   echo "WARNING: granting $AGENT_USER read/write access to the complete home of $APPROVER_USER." >&2
   echo "WARNING: this includes SSH keys, application credentials, configuration, and personal files." >&2
   echo "WARNING: the agent may be able to impersonate $APPROVER_USER; approval is no longer a strong isolation boundary." >&2
-  /usr/bin/sudo -u "$APPROVER_USER" -H -- /usr/local/bin/hostctl-admin home-access grant
+  /usr/bin/sudo -u "$APPROVER_USER" -H -- /usr/local/bin/rootbroker-admin home-access grant
 fi
 
-echo "hostctl installed: $(/usr/local/bin/hostctl version)"
+echo "rootbroker installed: $(/usr/local/bin/rootbroker version)"
 echo "Integration profile installed: $PROFILE"
-echo "Open a second terminal and run: hostctl-admin watch"
+echo "Open a second terminal and run: rootbroker-admin watch"
 profile_print_next_steps
 if [ "$ALLOW_APPROVER_HOME_RW" -eq 1 ]; then
-  echo "Home access enabled for $AGENT_USER. Revoke it with: hostctl-admin home-access revoke"
+  echo "Home access enabled for $AGENT_USER. Revoke it with: rootbroker-admin home-access revoke"
 fi

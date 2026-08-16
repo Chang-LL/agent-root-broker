@@ -15,7 +15,7 @@ agent adapters, decision providers, transports, or sharing modes require their o
 ## Trust boundaries
 
 ```text
-untrusted agent UID ── request socket ──> root hostctld ── exec ──> host
+untrusted agent UID ── request socket ──> root rootbrokerd ── exec ──> host
        │                                      ▲
        └── lifecycle hook adapter ────────────┤
                                               │
@@ -31,7 +31,7 @@ compromise, hardware attacks, and a malicious approved command are outside the p
 
 | Abuse path | Current controls | Residual risk |
 | --- | --- | --- |
-| Agent calls `sudo`, `su`, `pkexec`, or hostctl recursively | Separate UID, no privileged group, executable denylist, system test | Another host-installed privilege path would invalidate the deployment assumption. |
+| Agent calls `sudo`, `su`, `pkexec`, or rootbroker recursively | Separate UID, no privileged group, executable denylist, system test | Another host-installed privilege path would invalidate the deployment assumption. |
 | Agent connects to the admin plane | Separate socket group plus kernel `SO_PEERCRED` and configured identity checks | Malware already running as the approver can decide requests. |
 | Agent forges lifecycle JSON | Peer/process ancestry binding, normalized adapter, session/turn state machine, default denial | Hooks are fail-open usability signals; a compromised installed agent binary is trusted by this model. |
 | PID reuse or a restarted process inherits authority | PID plus `/proc` start-time identity; in-memory leases; liveness checks | Kernel or `/proc` compromise is out of scope. |

@@ -2,7 +2,7 @@
 
 # 路线图
 
-`hostctl` 是 Alpha 软件，在不受信任的本地 AI agent 和主机之间放置一个 root daemon。路线图
+`rootbroker` 是 Alpha 软件，在不受信任的本地 AI agent 和主机之间放置一个 root daemon。路线图
 按我们对这条安全边界的信心排序，而不是按功能数量排序。里程碑使用退出条件，而不是目标日期。
 
 ## 工程原则
@@ -38,14 +38,14 @@
   文件和可选 ACL。
 - [x] 校验或 daemon 就绪检测失败时安全退出；安装中断后可以重新执行，且不会因此授予 root
   权限。
-- [ ] 在发布到软件包 registry 前选择不冲突的公开项目名、命令名和包名；`hostctl` 已被一个
-  成熟项目使用。
+- [x] 在发布到软件包 registry 前选择不冲突的公开项目名、命令名和包名；将私有预览版从
+  `hostctl` 重命名为 `rootbroker`。
 
 ### 系统级验证
 
 - [x] 在一次性 Linux 系统中运行安装器，验证 systemd、账户/组成员关系、文件所有权/mode、
   sudoers 语法和 socket 权限。
-- [x] 验证 agent 无法直接调用 `sudo`，但能通过 `hostctl` 提交并执行获批命令。
+- [x] 验证 agent 无法直接调用 `sudo`，但能通过 `rootbroker` 提交并执行获批命令。
 - [x] 在安装后的真实系统中端到端测试批准、拒绝和 message 授权复用。
 - [x] 在安装后的真实系统中端到端测试超时、撤销、daemon 重启以及 command/session 授权边界。
 - [x] 测试 Grok 生命周期集成，包括缺失、重复、延迟和乱序的 hook 事件。

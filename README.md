@@ -1,8 +1,8 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# hostctl
+# rootbroker
 
-`hostctl` is a small Linux broker for letting a local AI agent request arbitrary root commands
+`rootbroker` is a small Linux broker for letting a local AI agent request arbitrary root commands
 without giving the agent `sudo`, Docker, LXD, or another persistent path to root. Every escalation
 is denied by default and waits for a human decision on a separate Unix socket.
 
@@ -17,14 +17,14 @@ dynamically loaded plugin API.
 
 Release gates and planned hardening work are tracked in [ROADMAP.md](ROADMAP.md).
 Operational documentation: [compatibility](COMPATIBILITY.md), [upgrade/rollback](UPGRADE.md),
-[uninstall](UNINSTALL.md), [troubleshooting](TROUBLESHOOTING.md),
+[private pre-alpha migration](MIGRATION.md), [uninstall](UNINSTALL.md), [troubleshooting](TROUBLESHOOTING.md),
 [support](SUPPORT.md), [threat model](THREAT_MODEL.md), and [contributing](CONTRIBUTING.md).
 
 ## How it works
 
 ```text
 Grok hook payload ─> Grok adapter ─> normalized lifecycle ─┐
-agent: hostctl sudo -- argv ─> normalized command request ─┼─> broker
+agent: rootbroker sudo -- argv ─> normalized command request ─┼─> broker
                                                           │      │
 human ─> admin Unix socket ─> ManualProvider.Reviewer ─────┘      │
                                                      Provider.Decide()
@@ -33,7 +33,7 @@ human ─> admin Unix socket ─> ManualProvider.Reviewer ─────┘    
 ```
 
 The request socket is accessible only to the dedicated agent account. The admin socket is
-accessible only to the approver group. `hostctld` also verifies Linux peer credentials and binds
+accessible only to the approver group. `rootbrokerd` also verifies Linux peer credentials and binds
 each request to the process identity (`uid`, PID, `/proc` start time), Grok session, and active turn
 reported by hooks. The ancestor must be the exact configured root-owned Grok executable, not merely
 a process with a matching name.
@@ -54,7 +54,7 @@ The implementation now has four explicit seams:
   the admin socket. A non-interactive provider does not need to expose a review queue. In every
   case, the broker validates the returned decision, records its provider/principal identity, and
   retains ownership of leases and execution.
-- The core installer owns host accounts/groups, the hostctl binary, daemon configuration, systemd,
+- The core installer owns host accounts/groups, the rootbroker binary, daemon configuration, systemd,
   and optional home ACLs. An allowlisted, versioned integration profile owns the agent executable,
   launcher, hooks, managed assets, and profile-specific sudoers rule. Grok is the first profile in
   `profiles/grok`.
@@ -78,7 +78,7 @@ the default Grok/local-human mode.
 
 Message approval ends when the turn ends, a new prompt starts, the process exits, it is revoked, or
 its TTL expires. Session approval ends on session/process exit, revocation, daemon restart, or TTL.
-All state is memory-only, so restarting `hostctld` revokes every approval.
+All state is memory-only, so restarting `rootbrokerd` revokes every approval.
 
 ## Requirements
 
@@ -109,14 +109,18 @@ sudo ./install.sh \
 For upgrades, the previous `--grok-bin PATH` form remains a compatibility alias for
 `--profile grok --agent-bin PATH`.
 
+The private pre-alpha project used the conflicting name `hostctl`. That installation must be
+removed before installing `rootbroker`; the installer detects it and fails with migration
+instructions. See [MIGRATION.md](MIGRATION.md). No legacy command aliases are installed.
+
 The installer:
 
-- creates locked-down `grok-agent`, `hostctl-agent`, and `hostctl-approver` identities/groups;
+- creates locked-down `grok-agent`, `rootbroker-agent`, and `rootbroker-approver` identities/groups;
 - installs one statically linked Go binary and root-owned multicall links;
 - invokes the allowlisted Grok profile to install the supplied agent binary, launcher, managed hooks,
-  rules, `hostctl-admin` skill, and narrowly scoped unprivileged-user sudoers rule;
-- installs `hostctl-uninstall` as a root-owned maintenance entry point;
-- enables `hostctld.service`.
+  rules, `rootbroker-admin` skill, and narrowly scoped unprivileged-user sudoers rule;
+- installs `rootbroker-uninstall` as a root-owned maintenance entry point;
+- enables `rootbrokerd.service`.
 
 It does **not** give the agent account sudo rights. Do not add that account to `sudo`, `docker`,
 `lxd`, `disk`, or similar privileged groups.
@@ -130,10 +134,10 @@ copy another user's login tokens into its home.
 
 Rerun a verified newer archive to upgrade. The installer keeps content-addressed binaries and
 automatically restores the previous binary if the new daemon does not become ready. See
-[UPGRADE.md](UPGRADE.md) for rollback behavior. To remove hostctl while preserving agent-home data:
+[UPGRADE.md](UPGRADE.md) for rollback behavior. To remove rootbroker while preserving agent-home data:
 
 ```sh
-sudo hostctl-uninstall
+sudo rootbroker-uninstall
 ```
 
 Account-removal and ACL-recovery options are documented in [UNINSTALL.md](UNINSTALL.md).
@@ -145,19 +149,19 @@ than data isolation on a personal host, the approver can enable persistent read/
 time after installation:
 
 ```sh
-hostctl-admin home-access status
-hostctl-admin home-access grant
-hostctl-admin home-access revoke
+rootbroker-admin home-access status
+rootbroker-admin home-access grant
+rootbroker-admin home-access revoke
 ```
 
-The grant persists across reboots and does not require reinstalling hostctl. Direct admin calls
+The grant persists across reboots and does not require reinstalling rootbroker. Direct admin calls
 require the configured approver identity; the isolated agent account cannot call them by itself. As
 a first-install convenience, `--allow-approver-home-rw` performs the same grant while running
 `install.sh`. After a grant, however, home write access may give the agent ways to impersonate that
 approver, as described below.
 
 This keeps Grok under the separate unprivileged account and does not grant sudo or membership in the
-approver's groups. The static hostctl daemon manages Linux POSIX ACLs directly through safely opened
+approver's groups. The static rootbroker daemon manages Linux POSIX ACLs directly through safely opened
 file descriptors; no separate ACL package is required. It does not follow symbolic links or cross
 filesystem boundaries, and it adds default ACLs so newly created content remains available to Grok.
 Running `grok-safe` from the approver's home or one of its subdirectories then allows normal file
@@ -169,7 +173,7 @@ complete successful grant, `partial` for incomplete/top-level ACL state, and `di
 
 This option deliberately lets Grok read sensitive files in that home, including SSH keys, shell
 configuration, browser/application state, and credentials. It also lets Grok modify or delete the
-approver's files. Root operations still require `hostctl`, but confidentiality and integrity of the
+approver's files. Root operations still require `rootbroker`, but confidentiality and integrity of the
 approver's home are no longer isolation boundaries.
 
 More importantly, write access to files such as `.ssh/authorized_keys`, shell startup files, user
@@ -178,14 +182,14 @@ human-only approval should be treated as a guard against mistakes, not a strong 
 Use a dedicated shared directory instead when that boundary matters.
 
 Revocation removes the named `grok-agent` access/default ACL entries throughout the home. It cannot
-distinguish an identically named ACL entry that existed before hostctl.
+distinguish an identically named ACL entry that existed before rootbroker.
 
 ## Use
 
 Open a second SSH session or tmux pane and start the reviewer:
 
 ```sh
-hostctl-admin watch
+rootbroker-admin watch
 ```
 
 Then launch Grok in the isolated account:
@@ -197,7 +201,7 @@ grok-safe
 When root is necessary, Grok is instructed to use direct argv form:
 
 ```sh
-hostctl sudo -- mount /dev/disk/by-uuid/EXAMPLE /mnt/data
+rootbroker sudo -- mount /dev/disk/by-uuid/EXAMPLE /mnt/data
 ```
 
 The reviewer displays the resolved command, quoted argv, cwd, timeout, risk hints, session/turn,
@@ -207,25 +211,25 @@ and exit status are returned to Grok.
 Non-interactive reviewer commands are also available for a human-operated workflow:
 
 ```sh
-hostctl-admin pending
-hostctl-admin approve REQUEST_ID --scope command
-hostctl-admin deny REQUEST_ID
-hostctl-admin leases
-hostctl-admin revoke LEASE_ID
+rootbroker-admin pending
+rootbroker-admin approve REQUEST_ID --scope command
+rootbroker-admin deny REQUEST_ID
+rootbroker-admin leases
+rootbroker-admin revoke LEASE_ID
 ```
 
-`--json` emits stable JSON from `hostctl`, `pending`, `leases`, approval, denial, and revocation
+`--json` emits stable JSON from `rootbroker`, `pending`, `leases`, approval, denial, and revocation
 commands.
 
 To verify a binary and local installation without submitting a command:
 
 ```sh
-hostctl --json doctor
+rootbroker --json doctor
 ```
 
 ### JSON contract
 
-Success from `hostctl sudo --json -- ...` includes `ok`, `requestId` (null when a lease was reused),
+Success from `rootbroker sudo --json -- ...` includes `ok`, `requestId` (null when a lease was reused),
 `approvalScope`, `commandHash`, `exitCode`, `stdout`, `stderr`, timeout/duration fields, and output
 truncation flags. Broker failures use this envelope:
 
@@ -239,7 +243,7 @@ values, credentials, or Grok authentication data.
 
 ## Configuration
 
-The installed configuration is `/etc/hostctl/config.json`. Useful controls include:
+The installed configuration is `/etc/rootbroker/config.json`. Useful controls include:
 
 - request, message, and session TTLs;
 - maximum command runtime and captured-output size;
@@ -250,13 +254,13 @@ The installed configuration is `/etc/hostctl/config.json`. Useful controls inclu
 After changing configuration, restart the daemon; this intentionally revokes existing approvals:
 
 ```sh
-sudo systemctl restart hostctld
+sudo systemctl restart rootbrokerd
 ```
 
 Audit events are available in the system journal:
 
 ```sh
-journalctl -u hostctld
+journalctl -u rootbrokerd
 ```
 
 Full argv is not journaled by default because command lines can accidentally contain private data.

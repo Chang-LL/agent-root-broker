@@ -17,13 +17,13 @@ import (
 	"strconv"
 	"syscall"
 
-	"hostctl/internal/agent"
-	"hostctl/internal/broker"
-	"hostctl/internal/config"
-	"hostctl/internal/executor"
-	"hostctl/internal/homeaccess"
-	"hostctl/internal/proc"
-	"hostctl/internal/transport"
+	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/rootbroker/internal/broker"
+	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/executor"
+	"github.com/Chang-LL/rootbroker/internal/homeaccess"
+	"github.com/Chang-LL/rootbroker/internal/proc"
+	"github.com/Chang-LL/rootbroker/internal/transport"
 )
 
 const maxRequestBytes = 256 * 1024
@@ -81,7 +81,7 @@ func Run(cfg config.Config) error {
 // handlers intentionally accept only kernel-authenticated Unix peers.
 func RunWithTransport(cfg config.Config, factory transport.Factory) error {
 	if cfg.RequireRootDaemon && os.Geteuid() != 0 {
-		return fmt.Errorf("hostctld must run as root")
+		return fmt.Errorf("rootbrokerd must run as root")
 	}
 	if err := prepareRuntimeDir(cfg); err != nil {
 		return err
@@ -103,13 +103,13 @@ func RunWithTransport(cfg config.Config, factory transport.Factory) error {
 	errCh := make(chan error, 2)
 	go func() { errCh <- requestServer.serve() }()
 	go func() { errCh <- adminServer.serve() }()
-	log.Printf("hostctld started")
+	log.Printf("rootbrokerd started")
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	select {
 	case signalValue := <-signals:
-		log.Printf("hostctld stopping on %s", signalValue)
+		log.Printf("rootbrokerd stopping on %s", signalValue)
 		return nil
 	case err := <-errCh:
 		return err
@@ -250,7 +250,7 @@ func (s *listener) handleAdmin(connection io.Writer, request requestEnvelope, ui
 			writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "home_access_failed", Message: err.Error()}})
 			return
 		}
-		log.Printf("hostctl.audit {\"event\":\"home-access\",\"action\":%q,\"approver_uid\":%d,\"agent_user\":%q,\"state\":%q}", request.Action, uid, agentUser, result.State)
+		log.Printf("rootbroker.audit {\"event\":\"home-access\",\"action\":%q,\"approver_uid\":%d,\"agent_user\":%q,\"state\":%q}", request.Action, uid, agentUser, result.State)
 		writeJSON(connection, homeAccessEnvelope{OK: true, Result: result})
 	default:
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "invalid_operation", Message: "unknown admin-plane operation"}})
@@ -313,11 +313,11 @@ func writeJSON(writer io.Writer, value any) {
 func Main(configPath string) int {
 	cfg, err := config.Load(filepath.Clean(configPath))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "hostctld: %v\n", err)
+		fmt.Fprintf(os.Stderr, "rootbrokerd: %v\n", err)
 		return 2
 	}
 	if err := Run(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "hostctld: %v\n", err)
+		fmt.Fprintf(os.Stderr, "rootbrokerd: %v\n", err)
 		return 1
 	}
 	return 0

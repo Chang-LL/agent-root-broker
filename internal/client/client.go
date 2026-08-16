@@ -13,7 +13,7 @@ const maxResponseBytes = 4 * 1024 * 1024
 func Call(socketPath string, payload any, response any) error {
 	connection, err := net.DialTimeout("unix", socketPath, 5*time.Second)
 	if err != nil {
-		return fmt.Errorf("cannot reach hostctl broker at %s: %w", socketPath, err)
+		return fmt.Errorf("cannot reach rootbroker broker at %s: %w", socketPath, err)
 	}
 	defer func() { _ = connection.Close() }()
 	if err := json.NewEncoder(connection).Encode(payload); err != nil {

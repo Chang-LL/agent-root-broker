@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"hostctl/internal/executor"
-	"hostctl/internal/proc"
+	"github.com/Chang-LL/rootbroker/internal/executor"
+	"github.com/Chang-LL/rootbroker/internal/proc"
 )
 
 const (

@@ -13,7 +13,7 @@ const (
 )
 
 // LifecycleEvent is the normalized contract between an agent integration and
-// the hostctl broker. Vendor hook payloads must be adapted before this point.
+// the rootbroker broker. Vendor hook payloads must be adapted before this point.
 type LifecycleEvent struct {
 	Kind      LifecycleKind `json:"kind"`
 	SessionID string        `json:"sessionId"`
@@ -31,7 +31,7 @@ func (e LifecycleEvent) Validate() error {
 	}
 }
 
-// LifecycleAdapter converts one agent vendor's hook payload into hostctl's
+// LifecycleAdapter converts one agent vendor's hook payload into rootbroker's
 // normalized lifecycle contract. The boolean is false for unrelated hooks.
 type LifecycleAdapter interface {
 	NormalizeLifecycle(map[string]any) (LifecycleEvent, bool, error)

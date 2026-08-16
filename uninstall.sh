@@ -6,7 +6,7 @@ if [ -L "$SCRIPT_PATH" ]; then
   SCRIPT_PATH=$(/usr/bin/readlink -f -- "$SCRIPT_PATH")
 fi
 PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
-STATE_PATH=/var/lib/hostctl/install-state
+STATE_PATH=/var/lib/rootbroker/install-state
 PURGE_AGENT_ACCOUNT=0
 SKIP_HOME_REVOKE=0
 TMP_DIR=
@@ -26,7 +26,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || { echo "uninstall.sh must run as root" >&2; exit 1; }
-[ -f "$STATE_PATH" ] || { echo "hostctl install state not found: $STATE_PATH" >&2; exit 1; }
+[ -f "$STATE_PATH" ] || { echo "rootbroker install state not found: $STATE_PATH" >&2; exit 1; }
 [ "$(/usr/bin/stat -c '%u' "$STATE_PATH")" -eq 0 ] && [ $(( $(/usr/bin/stat -c '%a' "$STATE_PATH") % 100 )) -eq 0 ] || {
   echo "refusing unsafe install state ownership or mode" >&2
   exit 1
@@ -77,18 +77,18 @@ fi
 
 TMP_DIR=$(/usr/bin/mktemp -d)
 trap '/bin/rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
-/bin/sed -n 's/^hostctl_object=//p' "$STATE_PATH" >"$TMP_DIR/hostctl-objects"
-while IFS= read -r hostctl_object; do
-  [ -n "$hostctl_object" ] || continue
-  printf '%s\n' "$hostctl_object" | /bin/grep -Eq '^/usr/local/libexec/hostctl-bin-[0-9a-f]{64}$' || {
-    echo "refusing malformed hostctl object path: $hostctl_object" >&2
+/bin/sed -n 's/^rootbroker_object=//p' "$STATE_PATH" >"$TMP_DIR/rootbroker-objects"
+while IFS= read -r rootbroker_object; do
+  [ -n "$rootbroker_object" ] || continue
+  printf '%s\n' "$rootbroker_object" | /bin/grep -Eq '^/usr/local/libexec/rootbroker-bin-[0-9a-f]{64}$' || {
+    echo "refusing malformed rootbroker object path: $rootbroker_object" >&2
     exit 1
   }
-done <"$TMP_DIR/hostctl-objects"
+done <"$TMP_DIR/rootbroker-objects"
 
 if [ "$PURGE_AGENT_ACCOUNT" -eq 1 ]; then
   [ "$CREATED_AGENT_USER" -eq 1 ] || {
-    echo "refusing to remove an agent account that hostctl did not create" >&2
+    echo "refusing to remove an agent account that rootbroker did not create" >&2
     exit 1
   }
   if command -v pgrep >/dev/null 2>&1 && /usr/bin/pgrep -u "$AGENT_USER" >/dev/null 2>&1; then
@@ -98,40 +98,40 @@ if [ "$PURGE_AGENT_ACCOUNT" -eq 1 ]; then
 fi
 
 if [ "$SKIP_HOME_REVOKE" -eq 0 ]; then
-  [ -x /usr/local/libexec/hostctl-bin ] || { echo "cannot revoke home access: hostctl binary is missing" >&2; exit 1; }
-  /usr/local/libexec/hostctl-bin hostctl-maint --config /etc/hostctl/config.json home-access revoke
+  [ -x /usr/local/libexec/rootbroker-bin ] || { echo "cannot revoke home access: rootbroker binary is missing" >&2; exit 1; }
+  /usr/local/libexec/rootbroker-bin rootbroker-maint --config /etc/rootbroker/config.json home-access revoke
 else
   echo "WARNING: skipping home-access revoke; ACL access may remain on $APPROVER_USER's home" >&2
 fi
 
-/usr/bin/systemctl disable --now hostctld.service >/dev/null 2>&1 || true
+/usr/bin/systemctl disable --now rootbrokerd.service >/dev/null 2>&1 || true
 profile_uninstall "$AGENT_HOME" "$TMP_DIR"
 
 /bin/rm -f -- \
   "/etc/sudoers.d/$PROFILE_SUDOERS_FILE" \
-  /etc/systemd/system/hostctld.service \
-  /etc/hostctl/config.json \
-  /usr/local/bin/hostctl \
-  /usr/local/bin/hostctl-admin \
-  /usr/local/sbin/hostctl-uninstall \
-  /usr/local/sbin/hostctld \
-  /usr/local/libexec/hostctl-bin \
-  /usr/local/share/hostctl/installer/uninstall.sh \
-  /usr/local/share/hostctl/installer/profiles/grok/profile.sh
-while IFS= read -r hostctl_object; do
-  [ -n "$hostctl_object" ] || continue
-  /bin/rm -f -- "$hostctl_object"
-done <"$TMP_DIR/hostctl-objects"
+  /etc/systemd/system/rootbrokerd.service \
+  /etc/rootbroker/config.json \
+  /usr/local/bin/rootbroker \
+  /usr/local/bin/rootbroker-admin \
+  /usr/local/sbin/rootbroker-uninstall \
+  /usr/local/sbin/rootbrokerd \
+  /usr/local/libexec/rootbroker-bin \
+  /usr/local/share/rootbroker/installer/uninstall.sh \
+  /usr/local/share/rootbroker/installer/profiles/grok/profile.sh
+while IFS= read -r rootbroker_object; do
+  [ -n "$rootbroker_object" ] || continue
+  /bin/rm -f -- "$rootbroker_object"
+done <"$TMP_DIR/rootbroker-objects"
 /bin/rm -f -- "$STATE_PATH"
 /usr/bin/systemctl daemon-reload
 /usr/sbin/visudo -cf /etc/sudoers >/dev/null
 
-if [ "$ADDED_APPROVER_MEMBERSHIP" -eq 1 ] && /usr/bin/getent group hostctl-approver >/dev/null; then
-  /usr/bin/gpasswd -d "$APPROVER_USER" hostctl-approver >/dev/null 2>&1 || true
+if [ "$ADDED_APPROVER_MEMBERSHIP" -eq 1 ] && /usr/bin/getent group rootbroker-approver >/dev/null; then
+  /usr/bin/gpasswd -d "$APPROVER_USER" rootbroker-approver >/dev/null 2>&1 || true
 fi
 if [ "$ADDED_AGENT_MEMBERSHIP" -eq 1 ] && /usr/bin/getent passwd "$AGENT_USER" >/dev/null && \
-  /usr/bin/getent group hostctl-agent >/dev/null; then
-  /usr/bin/gpasswd -d "$AGENT_USER" hostctl-agent >/dev/null 2>&1 || true
+  /usr/bin/getent group rootbroker-agent >/dev/null; then
+  /usr/bin/gpasswd -d "$AGENT_USER" rootbroker-agent >/dev/null 2>&1 || true
 fi
 if [ "$PURGE_AGENT_ACCOUNT" -eq 1 ]; then
   /usr/sbin/userdel "$AGENT_USER"
@@ -143,15 +143,15 @@ else
   echo "Preserved agent account and home: $AGENT_USER ($AGENT_HOME)"
 fi
 if [ "$CREATED_REQUEST_GROUP" -eq 1 ]; then
-  /usr/sbin/groupdel hostctl-agent >/dev/null 2>&1 || true
+  /usr/sbin/groupdel rootbroker-agent >/dev/null 2>&1 || true
 fi
 if [ "$CREATED_APPROVER_GROUP" -eq 1 ]; then
-  /usr/sbin/groupdel hostctl-approver >/dev/null 2>&1 || true
+  /usr/sbin/groupdel rootbroker-approver >/dev/null 2>&1 || true
 fi
-/bin/rmdir /run/hostctl /etc/hostctl /etc/grok /var/lib/hostctl \
-  /usr/local/share/hostctl/installer/profiles/grok \
-  /usr/local/share/hostctl/installer/profiles \
-  /usr/local/share/hostctl/installer \
-  /usr/local/share/hostctl /usr/local/libexec 2>/dev/null || true
+/bin/rmdir /run/rootbroker /etc/rootbroker /etc/grok /var/lib/rootbroker \
+  /usr/local/share/rootbroker/installer/profiles/grok \
+  /usr/local/share/rootbroker/installer/profiles \
+  /usr/local/share/rootbroker/installer \
+  /usr/local/share/rootbroker /usr/local/libexec 2>/dev/null || true
 
-echo "hostctl uninstalled."
+echo "rootbroker uninstalled."

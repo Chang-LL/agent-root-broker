@@ -1,11 +1,11 @@
 #!/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
-RULES=$(/bin/cat /usr/local/share/hostctl/grok/hostctl.md)
-exec /usr/local/libexec/grok-hostctl-bin \
+RULES=$(/bin/cat /usr/local/share/rootbroker/grok/rootbroker.md)
+exec /usr/local/libexec/grok-rootbroker-bin \
   --permission-mode auto \
   --rules "$RULES" \
-  --allow 'Bash(hostctl *)' \
+  --allow 'Bash(rootbroker *)' \
   --deny 'Bash(sudo *)' \
   --deny 'Bash(/usr/bin/sudo *)' \
   "$@"

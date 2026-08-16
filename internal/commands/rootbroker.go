@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"hostctl/internal/client"
+	"github.com/Chang-LL/rootbroker/internal/client"
 )
 
 type commandResponse struct {
@@ -24,8 +24,8 @@ type commandResponse struct {
 	StderrTruncated *bool           `json:"stderrTruncated,omitempty"`
 }
 
-func Hostctl(args []string, version string) int {
-	socketPath := stringEnv("HOSTCTL_SOCKET", defaultRequestSocket)
+func Rootbroker(args []string, version string) int {
+	socketPath := stringEnv("ROOTBROKER_SOCKET", defaultRequestSocket)
 	for len(args) >= 2 && args[0] == "--socket" {
 		socketPath, args = args[1], args[2:]
 	}
@@ -34,24 +34,24 @@ func Hostctl(args []string, version string) int {
 		globalJSON, args = true, args[1:]
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprintln(os.Stdout, "Usage: hostctl [--socket PATH] sudo [--json] [--timeout SECONDS] -- PROGRAM [ARGS...]\n       hostctl [--json] doctor\n       hostctl version")
+		fmt.Fprintln(os.Stdout, "Usage: rootbroker [--socket PATH] sudo [--json] [--timeout SECONDS] -- PROGRAM [ARGS...]\n       rootbroker [--json] doctor\n       rootbroker version")
 		return 0
 	}
 	if args[0] == "version" || args[0] == "--version" {
-		fmt.Fprintf(os.Stdout, "hostctl %s\n", version)
+		fmt.Fprintf(os.Stdout, "rootbroker %s\n", version)
 		return 0
 	}
 	if args[0] == "doctor" {
 		if len(args) == 2 && args[1] == "--json" {
 			globalJSON = true
 		} else if len(args) != 1 {
-			printClientError("hostctl", globalJSON, fmt.Errorf("doctor takes no arguments"))
+			printClientError("rootbroker", globalJSON, fmt.Errorf("doctor takes no arguments"))
 			return 2
 		}
 		return doctor(socketPath, version, globalJSON)
 	}
 	if args[0] != "sudo" {
-		fmt.Fprintf(os.Stderr, "hostctl: unknown command %q\n", args[0])
+		fmt.Fprintf(os.Stderr, "rootbroker: unknown command %q\n", args[0])
 		return 2
 	}
 	args = args[1:]
@@ -66,12 +66,12 @@ func Hostctl(args []string, version string) int {
 			asJSON, args = true, args[1:]
 		case "--timeout":
 			if len(args) < 2 {
-				printClientError("hostctl", asJSON, fmt.Errorf("--timeout requires a value"))
+				printClientError("rootbroker", asJSON, fmt.Errorf("--timeout requires a value"))
 				return 2
 			}
 			value, err := strconv.Atoi(args[1])
 			if err != nil {
-				printClientError("hostctl", asJSON, fmt.Errorf("invalid timeout: %s", args[1]))
+				printClientError("rootbroker", asJSON, fmt.Errorf("invalid timeout: %s", args[1]))
 				return 2
 			}
 			timeout, args = &value, args[2:]
@@ -82,12 +82,12 @@ func Hostctl(args []string, version string) int {
 
 parsed:
 	if len(args) == 0 {
-		printClientError("hostctl", asJSON, fmt.Errorf("missing command after 'hostctl sudo --'"))
+		printClientError("rootbroker", asJSON, fmt.Errorf("missing command after 'rootbroker sudo --'"))
 		return 2
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		printClientError("hostctl", asJSON, err)
+		printClientError("rootbroker", asJSON, err)
 		return 125
 	}
 	payload := struct {
@@ -98,7 +98,7 @@ parsed:
 	}{"request", args, cwd, timeout}
 	var response commandResponse
 	if err := client.Call(socketPath, payload, &response); err != nil {
-		printClientError("hostctl", asJSON, err)
+		printClientError("rootbroker", asJSON, err)
 		return 125
 	}
 	if asJSON {
@@ -111,7 +111,7 @@ parsed:
 			fmt.Fprint(os.Stderr, *response.Stderr)
 		}
 	} else if response.Error != nil {
-		fmt.Fprintf(os.Stderr, "hostctl: %s\n", response.Error.Message)
+		fmt.Fprintf(os.Stderr, "rootbroker: %s\n", response.Error.Message)
 	}
 	if response.OK {
 		if response.ExitCode != nil {
@@ -144,12 +144,12 @@ func doctor(socketPath, version string, asJSON bool) int {
 	}
 	response.OK = response.SocketPresent && response.SocketIsUnix
 	if !response.OK {
-		response.MissingSetup = "install and start hostctld"
+		response.MissingSetup = "install and start rootbrokerd"
 	}
 	if asJSON {
 		printJSON(response)
 	} else {
-		fmt.Fprintf(os.Stdout, "hostctl %s (%s)\nrequest socket: %s\npresent: %t  unix socket: %t\n", response.Version, response.Platform, response.RequestSocket, response.SocketPresent, response.SocketIsUnix)
+		fmt.Fprintf(os.Stdout, "rootbroker %s (%s)\nrequest socket: %s\npresent: %t  unix socket: %t\n", response.Version, response.Platform, response.RequestSocket, response.SocketPresent, response.SocketIsUnix)
 		if response.MissingSetup != "" {
 			fmt.Fprintf(os.Stdout, "missing setup: %s\n", response.MissingSetup)
 		}

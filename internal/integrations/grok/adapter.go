@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"hostctl/internal/agent"
+	"github.com/Chang-LL/rootbroker/internal/agent"
 )
 
-// Adapter translates Grok Build hooks into hostctl's vendor-neutral contracts.
+// Adapter translates Grok Build hooks into rootbroker's vendor-neutral contracts.
 type Adapter struct{}
 
 var _ agent.HookAdapter = Adapter{}

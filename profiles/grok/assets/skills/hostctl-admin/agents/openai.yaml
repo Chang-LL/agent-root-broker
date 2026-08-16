@@ -1,4 +1,0 @@
-interface:
-  display_name: "Hostctl Administration"
-  short_description: "Run approved root commands through hostctl"
-  default_prompt: "Use $hostctl-admin to complete a host administration task with approval."

@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"hostctl/internal/agent"
-	"hostctl/internal/approval"
-	"hostctl/internal/config"
-	"hostctl/internal/executor"
-	"hostctl/internal/proc"
+	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/rootbroker/internal/approval"
+	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/executor"
+	"github.com/Chang-LL/rootbroker/internal/proc"
 )
 
 func newTestBroker() (*Broker, proc.Identity) {

@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"hostctl/internal/commands"
-	"hostctl/internal/config"
-	"hostctl/internal/server"
+	"github.com/Chang-LL/rootbroker/internal/commands"
+	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/server"
 )
 
 var version = "dev"
@@ -21,18 +21,18 @@ func run() int {
 	args := os.Args[1:]
 	if len(args) > 0 {
 		switch args[0] {
-		case "hostctl", "hostctl-admin", "hostctl-grok-hook", "hostctl-maint", "hostctld":
+		case "rootbroker", "rootbroker-admin", "rootbroker-grok-hook", "rootbroker-maint", "rootbrokerd":
 			name, args = args[0], args[1:]
 		}
 	}
 	switch name {
-	case "hostctl-admin":
+	case "rootbroker-admin":
 		return commands.Admin(args)
-	case "hostctl-grok-hook":
+	case "rootbroker-grok-hook":
 		return commands.GrokHook()
-	case "hostctl-maint":
+	case "rootbroker-maint":
 		return commands.Maintenance(args)
-	case "hostctld":
+	case "rootbrokerd":
 		configPath := config.DefaultPath
 		checkOnly := false
 		if len(args) == 2 && args[0] == "--config" {
@@ -40,18 +40,18 @@ func run() int {
 		} else if len(args) == 2 && args[0] == "--check-config" {
 			configPath, checkOnly = args[1], true
 		} else if len(args) != 0 {
-			fmt.Fprintln(os.Stderr, "Usage: hostctld [--config PATH|--check-config PATH]")
+			fmt.Fprintln(os.Stderr, "Usage: rootbrokerd [--config PATH|--check-config PATH]")
 			return 2
 		}
 		if checkOnly {
 			if _, err := config.Load(configPath); err != nil {
-				fmt.Fprintf(os.Stderr, "hostctld: %v\n", err)
+				fmt.Fprintf(os.Stderr, "rootbrokerd: %v\n", err)
 				return 2
 			}
 			return 0
 		}
 		return server.Main(configPath)
 	default:
-		return commands.Hostctl(args, version)
+		return commands.Rootbroker(args, version)
 	}
 }

@@ -1,11 +1,11 @@
 ---
-name: hostctl-admin
-description: Use when a host administration task requires root privileges, including mounting disks, managing system services, installing operating-system packages, editing protected configuration, or inspecting root-only state. Routes the exact command through hostctl for human approval and explains command, message, and session approval behavior.
+name: rootbroker-admin
+description: Use when a host administration task requires root privileges, including mounting disks, managing system services, installing operating-system packages, editing protected configuration, or inspecting root-only state. Routes the exact command through rootbroker for human approval and explains command, message, and session approval behavior.
 ---
 
-# Hostctl Admin
+# Rootbroker Admin
 
-Use `hostctl` only after unprivileged inspection shows that root access is required.
+Use `rootbroker` only after unprivileged inspection shows that root access is required.
 
 ## Workflow
 
@@ -14,18 +14,18 @@ Use `hostctl` only after unprivileged inspection shows that root access is requi
 3. Submit a direct argv-style command:
 
    ```sh
-   hostctl sudo -- program arg1 arg2
+   rootbroker sudo -- program arg1 arg2
    ```
 
 4. Wait for the human decision. Do not retry, background, split, or mutate a pending request.
 5. If approved and successful, verify the result with an unprivileged command when possible.
-6. If denied, report that clearly and propose a narrower alternative instead of bypassing hostctl.
+6. If denied, report that clearly and propose a narrower alternative instead of bypassing rootbroker.
 
 ## Approval scopes
 
 - `command`: only the exact displayed argv, working directory, timeout, and request hash.
-- `message`: subsequent hostctl requests in this same user-prompt/assistant-turn pair, until turn end or TTL.
-- `session`: subsequent hostctl requests in this Grok process and conversation, until exit, revocation, or TTL.
+- `message`: subsequent rootbroker requests in this same user-prompt/assistant-turn pair, until turn end or TTL.
+- `session`: subsequent rootbroker requests in this Grok process and conversation, until exit, revocation, or TTL.
 
 The human chooses the scope. Never imply that a broader approval is required.
 

@@ -5,19 +5,19 @@
 PROFILE_CONTRACT_VERSION=2
 PROFILE_DISPLAY_NAME="Grok Build"
 PROFILE_DEFAULT_AGENT_USER=grok-agent
-PROFILE_AGENT_EXECUTABLE=/usr/local/libexec/grok-hostctl-bin
-PROFILE_SUDOERS_FILE=hostctl-grok-agent
+PROFILE_AGENT_EXECUTABLE=/usr/local/libexec/grok-rootbroker-bin
+PROFILE_SUDOERS_FILE=rootbroker-grok-agent
 
 profile_validate_managed_config() {
   profile_config_path=$1
   /usr/bin/awk '
-    $0 == "# BEGIN hostctl managed hooks" {
+    $0 == "# BEGIN rootbroker managed hooks" {
       if (inside || seen) exit 1
       inside = 1
       seen = 1
       next
     }
-    $0 == "# END hostctl managed hooks" {
+    $0 == "# END rootbroker managed hooks" {
       if (!inside) exit 1
       inside = 0
       next
@@ -30,11 +30,11 @@ profile_preflight() {
   for profile_asset in \
     "$PROFILE_DIR/bin/grok-agent-launch" \
     "$PROFILE_DIR/bin/grok-safe.in" \
-    "$PROFILE_DIR/assets/hooks/hostctl.json" \
+    "$PROFILE_DIR/assets/hooks/rootbroker.json" \
     "$PROFILE_DIR/assets/managed-hooks.toml" \
-    "$PROFILE_DIR/assets/rules/hostctl.md" \
-    "$PROFILE_DIR/assets/skills/hostctl-admin/SKILL.md" \
-    "$PROFILE_DIR/assets/skills/hostctl-admin/agents/openai.yaml"; do
+    "$PROFILE_DIR/assets/rules/rootbroker.md" \
+    "$PROFILE_DIR/assets/skills/rootbroker-admin/SKILL.md" \
+    "$PROFILE_DIR/assets/skills/rootbroker-admin/agents/openai.yaml"; do
     if [ ! -f "$profile_asset" ]; then
       echo "Grok profile asset is missing: $profile_asset" >&2
       return 1
@@ -48,7 +48,7 @@ profile_prepare() {
 
   /bin/sed "s/@AGENT_USER@/$profile_agent_user/g" "$PROFILE_DIR/bin/grok-safe.in" >"$profile_tmp_dir/grok-safe"
   {
-    echo "%hostctl-approver ALL=($profile_agent_user) NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *"
+    echo "%rootbroker-approver ALL=($profile_agent_user) NOPASSWD: SETENV: /usr/local/libexec/grok-agent-launch *"
   } >"$profile_tmp_dir/$PROFILE_SUDOERS_FILE"
   /usr/sbin/visudo -cf "$profile_tmp_dir/$PROFILE_SUDOERS_FILE"
 
@@ -57,10 +57,10 @@ profile_prepare() {
     /bin/cp -- /etc/grok/managed_config.toml "$profile_tmp_dir/managed_config.toml"
   fi
   if ! profile_validate_managed_config "$profile_tmp_dir/managed_config.toml"; then
-    echo "refusing malformed hostctl block in /etc/grok/managed_config.toml" >&2
+    echo "refusing malformed rootbroker block in /etc/grok/managed_config.toml" >&2
     return 1
   fi
-  profile_begin_count=$(/bin/grep -Fxc '# BEGIN hostctl managed hooks' "$profile_tmp_dir/managed_config.toml" || true)
+  profile_begin_count=$(/bin/grep -Fxc '# BEGIN rootbroker managed hooks' "$profile_tmp_dir/managed_config.toml" || true)
   if [ "$profile_begin_count" -eq 0 ]; then
     printf '\n' >>"$profile_tmp_dir/managed_config.toml"
     /bin/sed -n '1,$p' "$PROFILE_DIR/assets/managed-hooks.toml" >>"$profile_tmp_dir/managed_config.toml"
@@ -74,28 +74,28 @@ profile_install() {
 
   profile_agent_group=$(/usr/bin/id -gn "$profile_agent_user")
 
-  /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/libexec/hostctl-grok-hook
+  /bin/ln -sfn /usr/local/libexec/rootbroker-bin /usr/local/libexec/rootbroker-grok-hook
   /usr/bin/install -o root -g root -m 0755 "$PROFILE_DIR/bin/grok-agent-launch" /usr/local/libexec/grok-agent-launch
   /usr/bin/install -o root -g root -m 0755 "$profile_agent_bin" "$PROFILE_AGENT_EXECUTABLE"
 
   /usr/bin/install -o root -g root -m 0755 "$profile_tmp_dir/grok-safe" /usr/local/bin/grok-safe
 
-  /usr/bin/install -d -o root -g root -m 0755 /usr/local/share/hostctl/grok
-  /usr/bin/install -o root -g root -m 0644 "$PROFILE_DIR/assets/rules/hostctl.md" /usr/local/share/hostctl/grok/hostctl.md
-  /bin/cp -R "$PROFILE_DIR/assets/skills/hostctl-admin" /usr/local/share/hostctl/grok/
-  /bin/chown -R root:root /usr/local/share/hostctl/grok/hostctl-admin
-  /bin/chmod -R go-w /usr/local/share/hostctl/grok/hostctl-admin
+  /usr/bin/install -d -o root -g root -m 0755 /usr/local/share/rootbroker/grok
+  /usr/bin/install -o root -g root -m 0644 "$PROFILE_DIR/assets/rules/rootbroker.md" /usr/local/share/rootbroker/grok/rootbroker.md
+  /bin/cp -R "$PROFILE_DIR/assets/skills/rootbroker-admin" /usr/local/share/rootbroker/grok/
+  /bin/chown -R root:root /usr/local/share/rootbroker/grok/rootbroker-admin
+  /bin/chmod -R go-w /usr/local/share/rootbroker/grok/rootbroker-admin
 
   profile_agent_home=$(/usr/bin/getent passwd "$profile_agent_user" | /usr/bin/cut -d: -f6)
   /usr/bin/install -d -o "$profile_agent_user" -g "$profile_agent_group" -m 0700 "$profile_agent_home/.grok"
   /usr/bin/install -d -o root -g root -m 0755 "$profile_agent_home/.grok/hooks"
-  /usr/bin/install -o root -g root -m 0644 "$PROFILE_DIR/assets/hooks/hostctl.json" "$profile_agent_home/.grok/hooks/hostctl.json"
+  /usr/bin/install -o root -g root -m 0644 "$PROFILE_DIR/assets/hooks/rootbroker.json" "$profile_agent_home/.grok/hooks/rootbroker.json"
   /usr/bin/install -d -o "$profile_agent_user" -g "$profile_agent_group" -m 0755 "$profile_agent_home/.grok/skills"
-  if [ -e "$profile_agent_home/.grok/skills/hostctl-admin" ] && [ ! -L "$profile_agent_home/.grok/skills/hostctl-admin" ]; then
-    echo "refusing to replace existing $profile_agent_home/.grok/skills/hostctl-admin" >&2
+  if [ -e "$profile_agent_home/.grok/skills/rootbroker-admin" ] && [ ! -L "$profile_agent_home/.grok/skills/rootbroker-admin" ]; then
+    echo "refusing to replace existing $profile_agent_home/.grok/skills/rootbroker-admin" >&2
     return 1
   fi
-  /bin/ln -sfn /usr/local/share/hostctl/grok/hostctl-admin "$profile_agent_home/.grok/skills/hostctl-admin"
+  /bin/ln -sfn /usr/local/share/rootbroker/grok/rootbroker-admin "$profile_agent_home/.grok/skills/rootbroker-admin"
 
   /usr/bin/install -d -o root -g root -m 0755 /etc/grok
   /usr/bin/install -o root -g root -m 0644 "$profile_tmp_dir/managed_config.toml" /etc/grok/managed_config.toml
@@ -113,23 +113,23 @@ profile_uninstall() {
   profile_tmp_dir=$2
 
   if [ -f /etc/grok/managed_config.toml ] && ! profile_validate_managed_config /etc/grok/managed_config.toml; then
-    echo "refusing malformed hostctl block in /etc/grok/managed_config.toml" >&2
+    echo "refusing malformed rootbroker block in /etc/grok/managed_config.toml" >&2
     return 1
   fi
 
   /bin/rm -f -- \
     /usr/local/bin/grok-safe \
-    /usr/local/libexec/hostctl-grok-hook \
+    /usr/local/libexec/rootbroker-grok-hook \
     /usr/local/libexec/grok-agent-launch \
     "$PROFILE_AGENT_EXECUTABLE" \
-    "$profile_agent_home/.grok/hooks/hostctl.json" \
-    "$profile_agent_home/.grok/skills/hostctl-admin"
-  /bin/rm -rf -- /usr/local/share/hostctl/grok
+    "$profile_agent_home/.grok/hooks/rootbroker.json" \
+    "$profile_agent_home/.grok/skills/rootbroker-admin"
+  /bin/rm -rf -- /usr/local/share/rootbroker/grok
 
   if [ -f /etc/grok/managed_config.toml ]; then
     /usr/bin/awk '
-      $0 == "# BEGIN hostctl managed hooks" { managed = 1; next }
-      $0 == "# END hostctl managed hooks" { managed = 0; next }
+      $0 == "# BEGIN rootbroker managed hooks" { managed = 1; next }
+      $0 == "# END rootbroker managed hooks" { managed = 0; next }
       !managed { print }
     ' /etc/grok/managed_config.toml >"$profile_tmp_dir/managed_config.toml"
     if /bin/grep -q '[^[:space:]]' "$profile_tmp_dir/managed_config.toml"; then

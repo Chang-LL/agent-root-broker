@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"hostctl/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/config"
 )
 
 var blockedExecutables = map[string]bool{
-	"hostctl": true, "hostctl-admin": true, "hostctl-maint": true, "hostctld": true,
-	"hostctl-grok-hook": true, "pkexec": true, "su": true, "sudo": true,
-	"hostctl-bin": true,
+	"rootbroker": true, "rootbroker-admin": true, "rootbroker-maint": true, "rootbrokerd": true,
+	"rootbroker-grok-hook": true, "pkexec": true, "su": true, "sudo": true,
+	"rootbroker-bin": true,
 }
 
 var interpreters = map[string]bool{
@@ -205,7 +205,7 @@ func Execute(command Command, cfg config.Config) Result {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
-		return Result{ExitCode: 126, Stderr: "hostctl: execution failed: " + err.Error() + "\n", DurationMS: time.Since(started).Milliseconds()}
+		return Result{ExitCode: 126, Stderr: "rootbroker: execution failed: " + err.Error() + "\n", DurationMS: time.Since(started).Milliseconds()}
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
@@ -229,7 +229,7 @@ func Execute(command Command, cfg config.Config) Result {
 	}
 	if timedOut {
 		exitCode = 124
-		_, _ = stderr.Write([]byte(fmt.Sprintf("hostctl: command timed out after %ds\n", command.TimeoutSeconds)))
+		_, _ = stderr.Write([]byte(fmt.Sprintf("rootbroker: command timed out after %ds\n", command.TimeoutSeconds)))
 	}
 	return Result{
 		ExitCode: exitCode, Stdout: stdout.buffer.String(), Stderr: stderr.buffer.String(),

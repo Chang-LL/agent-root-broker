@@ -23,7 +23,7 @@ It also requires six functions:
 - `profile_uninstall AGENT_HOME TMP_DIR`: remove only profile-owned files and managed blocks;
 - `profile_print_next_steps`: print profile-specific launch or authentication guidance.
 
-The core installer owns hostctl identities/groups, the hostctl binary and multicall links, daemon
+The core installer owns rootbroker identities/groups, the rootbroker binary and multicall links, daemon
 configuration, systemd, and optional home ACLs. A profile must be idempotent, keep installed control
 files root-owned, grant no root sudo rule to the agent, avoid network activity, and fail closed when
 an expected asset or invariant is missing.

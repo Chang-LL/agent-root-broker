@@ -7,11 +7,11 @@ present. Then check:
 
 ```sh
 id
-hostctl --json doctor
-systemctl status hostctld
+rootbroker --json doctor
+systemctl status rootbrokerd
 ```
 
-The request and admin sockets should exist under `/run/hostctl`. A daemon restart intentionally
+The request and admin sockets should exist under `/run/rootbroker`. A daemon restart intentionally
 clears every lease and active lifecycle state.
 
 ## Grok reports `no_active_turn`
@@ -35,7 +35,7 @@ restart.
 
 ## Home access is `partial`
 
-A grant did not complete or ACL state changed afterward. Run `hostctl-admin home-access grant` again
+A grant did not complete or ACL state changed afterward. Run `rootbroker-admin home-access grant` again
 to reconcile existing entries. Restrictive modes, unsupported xattrs/ACLs, filesystem boundaries,
 and concurrent filesystem changes can affect the result. `revoke` is idempotent and removes the
 agent UID's named ACL entries throughout the configured home.
@@ -43,16 +43,16 @@ agent UID's named ACL entries throughout the configured home.
 ## Upgrade failed
 
 The installer waits for the daemon and both sockets, then automatically restores the previous
-content-addressed binary if the candidate is not ready. Check `hostctl version` and
-`systemctl status hostctld`. Keep the complete installer output; do not replace symlinks manually.
+content-addressed binary if the candidate is not ready. Check `rootbroker version` and
+`systemctl status rootbrokerd`. Keep the complete installer output; do not replace symlinks manually.
 
 ## Collecting logs
 
 ```sh
-hostctl version
-hostctl --json doctor
-systemctl status hostctld
-journalctl -u hostctld
+rootbroker version
+rootbroker --json doctor
+systemctl status rootbrokerd
+journalctl -u rootbrokerd
 ```
 
 Full argv is not journaled by default, but logs and local paths can still be sensitive. Redact them

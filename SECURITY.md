@@ -15,7 +15,7 @@ The root installer sources only built-in, allowlisted integration profiles. A pr
 the same authority as `install.sh`; review both the core installer and selected profile before
 running either from a source checkout or release archive.
 
-`hostctl` assumes:
+`rootbroker` assumes:
 
 - the AI agent and anything it launches may be malicious;
 - the dedicated agent user has no other route to host privilege;
@@ -31,7 +31,7 @@ is memory-only and bound to the process start time so PID reuse does not inherit
 
 Commands are resolved through a fixed PATH, require a root-owned non-writable executable and protected
 parent directory chain by default, and execute as an argv array with a fixed environment, closed stdin,
-bounded runtime, and bounded captured output. `sudo`, `su`, `pkexec`, and recursive hostctl executables
+bounded runtime, and bounded captured output. `sudo`, `su`, `pkexec`, and recursive rootbroker executables
 are rejected.
 
 ## Important limitations
@@ -52,7 +52,7 @@ provider needs its own authentication, failure-mode, audit, and threat-model rev
 Do not expose either Unix socket through TCP, a container bind mount, or a group shared with unrelated
 users. Do not run Grok in the approver account if the goal is isolation.
 
-The optional `hostctl-admin home-access grant` command (and its installation shortcut
+The optional `rootbroker-admin home-access grant` command (and its installation shortcut
 `--allow-approver-home-rw`) intentionally removes the approver home as a data-isolation boundary.
 Direct admin calls require an authenticated approver; the isolated agent UID cannot use the admin
 socket by itself. The agent remains a separate unprivileged UID, but it can read,

@@ -45,20 +45,20 @@ jobs:
             echo "invalid release version: $VERSION" >&2
             exit 2
           }
-          release_root="$RUNNER_TEMP/hostctl-release"
+          release_root="$RUNNER_TEMP/rootbroker-release"
           mkdir -p "$release_root"
           for arch in amd64 arm64; do
-            stage="$release_root/hostctl_${VERSION}_linux_${arch}"
+            stage="$release_root/rootbroker_${VERSION}_linux_${arch}"
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
-            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/hostctl" ./cmd/hostctl
-            cyclonedx-gomod bin -json -output "$stage/hostctl.bom.cdx.json" -version "$VERSION" "$stage/hostctl"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/rootbroker" ./cmd/rootbroker
+            cyclonedx-gomod bin -json -output "$stage/rootbroker.bom.cdx.json" -version "$VERSION" "$stage/rootbroker"
             cp install.sh uninstall.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
               SECURITY.md CONTRIBUTING.md SUPPORT.md COMPATIBILITY.md UPGRADE.md UNINSTALL.md \
-              TROUBLESHOOTING.md THREAT_MODEL.md CHANGELOG.md "$stage/"
+              MIGRATION.md TROUBLESHOOTING.md THREAT_MODEL.md CHANGELOG.md "$stage/"
             cp -R profiles "$stage/"
             cp packaging/config/config.json.in "$stage/packaging/config/"
-            cp packaging/systemd/hostctld.service "$stage/packaging/systemd/"
-            tar -C "$release_root" -czf "$release_root/hostctl_${VERSION}_linux_${arch}.tar.gz" "hostctl_${VERSION}_linux_${arch}"
+            cp packaging/systemd/rootbrokerd.service "$stage/packaging/systemd/"
+            tar -C "$release_root" -czf "$release_root/rootbroker_${VERSION}_linux_${arch}.tar.gz" "rootbroker_${VERSION}_linux_${arch}"
             rm -rf -- "$stage"
           done
           cd "$release_root"
@@ -82,7 +82,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: hostctl-release-${{ env.VERSION }}
+          name: rootbroker-release-${{ env.VERSION }}
           path: release/
           if-no-files-found: error
       - name: Publish GitHub release

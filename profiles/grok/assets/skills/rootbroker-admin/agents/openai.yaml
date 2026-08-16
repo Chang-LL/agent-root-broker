@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rootbroker Administration"
+  short_description: "Run approved root commands through rootbroker"
+  default_prompt: "Use $rootbroker-admin to complete a host administration task with approval."

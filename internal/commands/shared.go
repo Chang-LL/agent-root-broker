@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	defaultRequestSocket = "/run/hostctl/request.sock"
-	defaultAdminSocket   = "/run/hostctl/admin.sock"
+	defaultRequestSocket = "/run/rootbroker/request.sock"
+	defaultAdminSocket   = "/run/rootbroker/admin.sock"
 )
 
 type responseError struct {

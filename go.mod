@@ -1,4 +1,4 @@
-module hostctl
+module github.com/Chang-LL/rootbroker
 
 go 1.25.0
 

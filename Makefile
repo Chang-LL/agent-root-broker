@@ -1,6 +1,6 @@
 VERSION ?= dev
-GOCACHE ?= /tmp/hostctl-go-cache
-GOPATH ?= /tmp/hostctl-go-path
+GOCACHE ?= /tmp/rootbroker-go-cache
+GOPATH ?= /tmp/rootbroker-go-path
 GO_ENV = GOCACHE=$(GOCACHE) GOPATH=$(GOPATH)
 LDFLAGS = -s -w -X main.version=$(VERSION)
 
@@ -9,7 +9,7 @@ LDFLAGS = -s -w -X main.version=$(VERSION)
 all: build
 
 build:
-	$(GO_ENV) go build -trimpath -ldflags '$(LDFLAGS)' -o bin/hostctl ./cmd/hostctl
+	$(GO_ENV) go build -trimpath -ldflags '$(LDFLAGS)' -o bin/rootbroker ./cmd/rootbroker
 
 test:
 	$(GO_ENV) go test ./...
@@ -37,14 +37,14 @@ integration:
 	$(GO_ENV) ./tests/integration_linux.sh
 
 system-test:
-	HOSTCTL_SYSTEM_TEST_ALLOW_MUTATION=1 \
-	HOSTCTL_TEST_APPROVER_USER="$${SUDO_USER:-$${USER:-}}" \
+	ROOTBROKER_SYSTEM_TEST_ALLOW_MUTATION=1 \
+	ROOTBROKER_TEST_APPROVER_USER="$${SUDO_USER:-$${USER:-}}" \
 	./tests/install_system_linux.sh
 
 snapshot:
 	mkdir -p dist
-	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '$(LDFLAGS)' -o dist/hostctl-linux-amd64 ./cmd/hostctl
-	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags '$(LDFLAGS)' -o dist/hostctl-linux-arm64 ./cmd/hostctl
+	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '$(LDFLAGS)' -o dist/rootbroker-linux-amd64 ./cmd/rootbroker
+	$(GO_ENV) CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags '$(LDFLAGS)' -o dist/rootbroker-linux-arm64 ./cmd/rootbroker
 
 clean:
 	rm -rf -- bin dist

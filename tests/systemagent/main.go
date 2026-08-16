@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-const modePrefix = "--hostctl-system-test="
-const gatePrefix = "--hostctl-test-gate="
+const modePrefix = "--rootbroker-system-test="
+const gatePrefix = "--rootbroker-test-gate="
 
 func main() {
 	mode := ""
@@ -31,7 +31,7 @@ func main() {
 	if mode == "missing" {
 		os.Exit(request("/usr/bin/id", "-u"))
 	}
-	session := "hostctl-system-" + strconv.Itoa(os.Getpid())
+	session := "rootbroker-system-" + strconv.Itoa(os.Getpid())
 	if err := sendHook("session_start", session, ""); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -94,7 +94,7 @@ func sendHook(name, session, reason string) error {
 	if err != nil {
 		return fmt.Errorf("encode hook: %w", err)
 	}
-	command := exec.Command("/usr/local/libexec/hostctl-grok-hook")
+	command := exec.Command("/usr/local/libexec/rootbroker-grok-hook")
 	command.Stdin = bytes.NewReader(append(encoded, '\n'))
 	if output, err := command.CombinedOutput(); err != nil {
 		return fmt.Errorf("send %s hook: %w: %s", name, err, output)
@@ -112,7 +112,7 @@ func requestWithTimeout(timeout int, arguments ...string) int {
 }
 
 func runRequest(arguments ...string) int {
-	command := exec.Command("/usr/local/bin/hostctl", arguments...)
+	command := exec.Command("/usr/local/bin/rootbroker", arguments...)
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	if err := command.Run(); err != nil {

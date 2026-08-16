@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"hostctl/internal/config"
+	"github.com/Chang-LL/rootbroker/internal/config"
 )
 
 func testConfig() config.Config {
@@ -31,7 +31,7 @@ func TestPrepareAndExecuteWithoutShell(t *testing.T) {
 func TestPrepareRejectsWrappersAndFlagsRisk(t *testing.T) {
 	cfg := testConfig()
 	cwd, _ := os.Getwd()
-	for _, executable := range []string{"sudo", "hostctl"} {
+	for _, executable := range []string{"sudo", "rootbroker"} {
 		if _, err := Prepare([]string{executable, "true"}, cwd, intPointer(5), cfg); err == nil {
 			t.Fatalf("expected %s rejection", executable)
 		}

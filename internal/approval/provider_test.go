@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"hostctl/internal/proc"
+	"github.com/Chang-LL/rootbroker/internal/proc"
 )
 
 func TestManualProviderMessageReviewResolvesSameTurn(t *testing.T) {

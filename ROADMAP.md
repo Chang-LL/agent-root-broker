@@ -2,7 +2,7 @@
 
 # Roadmap
 
-`hostctl` is alpha software that places a root daemon between an untrusted local AI agent and the
+`rootbroker` is alpha software that places a root daemon between an untrusted local AI agent and the
 host. Its roadmap is ordered by confidence in that boundary, not by feature count. Milestones have
 exit criteria instead of target dates.
 
@@ -48,15 +48,15 @@ version is `v0.1.0-alpha.1`.
   sockets, service files, managed Grok files, and optional ACLs.
 - [x] Fail safely when validation or daemon readiness fails, and keep interrupted installs
   rerunnable without granting root authority.
-- [ ] Select a conflict-free public project, command, and package name before publishing to package
-  registries; `hostctl` is already used by an established project.
+- [x] Select a conflict-free public project, command, and package name before publishing to package
+  registries; rename the private pre-alpha project from `hostctl` to `rootbroker`.
 
 ### System-level verification
 
 - [x] Run the installer in a disposable Linux system and verify systemd, account/group membership,
   file ownership/modes, sudoers syntax, and socket permissions.
 - [x] Verify that the agent cannot invoke `sudo` directly but can submit an approved command through
-  `hostctl`.
+  `rootbroker`.
 - [x] Exercise approve, deny, and a reused message lease through the installed system end to end.
 - [x] Exercise timeout, revoke, daemon restart, and command/session lease boundaries through the
   installed system end to end.

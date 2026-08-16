@@ -5,19 +5,19 @@ import (
 	"os"
 	"regexp"
 
-	"hostctl/internal/agent"
-	"hostctl/internal/client"
-	"hostctl/internal/integrations/grok"
+	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/rootbroker/internal/client"
+	"github.com/Chang-LL/rootbroker/internal/integrations/grok"
 )
 
 var (
-	hostctlSudo = regexp.MustCompile(`(^|[;&|()\n]\s*)(/usr/local/bin/)?hostctl\s+sudo($|\s)`)
-	directSudo  = regexp.MustCompile(`(^|[;&|()\n]\s*)(/usr/bin/|/bin/)?sudo($|\s)`)
+	rootbrokerSudo = regexp.MustCompile(`(^|[;&|()\n]\s*)(/usr/local/bin/)?rootbroker\s+sudo($|\s)`)
+	directSudo     = regexp.MustCompile(`(^|[;&|()\n]\s*)(/usr/bin/|/bin/)?sudo($|\s)`)
 )
 
 func ContainsDirectSudo(command string) bool {
-	withoutHostctl := hostctlSudo.ReplaceAllString(command, `${1}hostctl-approved${3}`)
-	return directSudo.MatchString(withoutHostctl)
+	withoutRootbroker := rootbrokerSudo.ReplaceAllString(command, `${1}rootbroker-approved${3}`)
+	return directSudo.MatchString(withoutRootbroker)
 }
 
 func GrokHook() int {
@@ -30,12 +30,12 @@ func runAgentHook(adapter agent.HookAdapter) int {
 		return 0
 	}
 	if event, ok, err := adapter.NormalizeLifecycle(raw); err == nil && ok {
-		socketPath := stringEnv("HOSTCTL_SOCKET", defaultRequestSocket)
+		socketPath := stringEnv("ROOTBROKER_SOCKET", defaultRequestSocket)
 		var ignored baseResponse
 		_ = client.Call(socketPath, map[string]any{"op": "lifecycle", "lifecycle": event}, &ignored)
 	}
 	if command, ok := adapter.ShellCommand(raw); ok && ContainsDirectSudo(command) {
-		printJSON(map[string]any{"decision": "deny", "reason": "Direct sudo is disabled. Use: hostctl sudo -- <program> <args>"})
+		printJSON(map[string]any{"decision": "deny", "reason": "Direct sudo is disabled. Use: rootbroker sudo -- <program> <args>"})
 	}
 	return 0
 }

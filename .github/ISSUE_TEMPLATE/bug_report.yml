@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible hostctl failure without sensitive host data.
+description: Report a reproducible rootbroker failure without sensitive host data.
 title: "bug: "
 labels: [bug]
 body:
@@ -11,8 +11,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: hostctl version
-      placeholder: hostctl v0.1.0-alpha.1
+      label: rootbroker version
+      placeholder: rootbroker v0.1.0-alpha.1
     validations:
       required: true
   - type: input

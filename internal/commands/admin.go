@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"hostctl/internal/broker"
-	"hostctl/internal/client"
+	"github.com/Chang-LL/rootbroker/internal/broker"
+	"github.com/Chang-LL/rootbroker/internal/client"
 )
 
 type pendingResponse struct {
@@ -30,7 +30,7 @@ type homeAccessResponse struct {
 }
 
 func Admin(args []string) int {
-	socketPath := stringEnv("HOSTCTL_ADMIN_SOCKET", defaultAdminSocket)
+	socketPath := stringEnv("ROOTBROKER_ADMIN_SOCKET", defaultAdminSocket)
 	asJSON := false
 	for len(args) > 0 {
 		if len(args) >= 2 && args[0] == "--socket" {
@@ -44,14 +44,14 @@ func Admin(args []string) int {
 		break
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprintln(os.Stdout, "Usage: hostctl-admin [--json] pending|leases\n       hostctl-admin approve REQUEST_ID [--scope command|message|session]\n       hostctl-admin deny REQUEST_ID\n       hostctl-admin revoke LEASE_ID\n       hostctl-admin home-access status|grant|revoke\n       hostctl-admin watch [--interval SECONDS]")
+		fmt.Fprintln(os.Stdout, "Usage: rootbroker-admin [--json] pending|leases\n       rootbroker-admin approve REQUEST_ID [--scope command|message|session]\n       rootbroker-admin deny REQUEST_ID\n       rootbroker-admin revoke LEASE_ID\n       rootbroker-admin home-access status|grant|revoke\n       rootbroker-admin watch [--interval SECONDS]")
 		return 0
 	}
 	switch args[0] {
 	case "pending":
 		response, err := getPending(socketPath)
 		if err != nil {
-			printClientError("hostctl-admin", asJSON, err)
+			printClientError("rootbroker-admin", asJSON, err)
 			return 1
 		}
 		if asJSON {
@@ -68,7 +68,7 @@ func Admin(args []string) int {
 		var response leasesResponse
 		err := client.Call(socketPath, map[string]any{"op": "leases"}, &response)
 		if err != nil {
-			printClientError("hostctl-admin", asJSON, err)
+			printClientError("rootbroker-admin", asJSON, err)
 			return 1
 		}
 		if asJSON {
@@ -116,13 +116,13 @@ func Admin(args []string) int {
 		}
 		var response homeAccessResponse
 		if err := client.Call(socketPath, map[string]any{"op": "home_access", "action": args[1]}, &response); err != nil {
-			printClientError("hostctl-admin", asJSON, err)
+			printClientError("rootbroker-admin", asJSON, err)
 			return 1
 		}
 		if asJSON {
 			printJSON(response)
 		} else if !response.OK && response.Error != nil {
-			fmt.Fprintf(os.Stderr, "hostctl-admin: %s\n", response.Error.Message)
+			fmt.Fprintf(os.Stderr, "rootbroker-admin: %s\n", response.Error.Message)
 		} else {
 			switch args[1] {
 			case "grant":
@@ -163,14 +163,14 @@ func getPending(socketPath string) (pendingResponse, error) {
 func adminMutation(socketPath string, asJSON bool, payload map[string]any) int {
 	var response baseResponse
 	if err := client.Call(socketPath, payload, &response); err != nil {
-		printClientError("hostctl-admin", asJSON, err)
+		printClientError("rootbroker-admin", asJSON, err)
 		return 1
 	}
 	if asJSON {
 		printJSON(response)
 	}
 	if !response.OK && response.Error != nil && !asJSON {
-		fmt.Fprintf(os.Stderr, "hostctl-admin: %s\n", response.Error.Message)
+		fmt.Fprintf(os.Stderr, "rootbroker-admin: %s\n", response.Error.Message)
 	}
 	return responseExit(response, asJSON)
 }
@@ -183,7 +183,7 @@ func responseExit(response baseResponse, _ bool) int {
 }
 
 func adminUsageError(asJSON bool, message string) int {
-	printClientError("hostctl-admin", asJSON, fmt.Errorf("%s", message))
+	printClientError("rootbroker-admin", asJSON, fmt.Errorf("%s", message))
 	return 2
 }
 
@@ -207,13 +207,13 @@ func shellQuote(value string) string {
 }
 
 func watch(socketPath string, interval time.Duration) int {
-	fmt.Fprintln(os.Stdout, "Waiting for hostctl requests. Ctrl+C quits.")
+	fmt.Fprintln(os.Stdout, "Waiting for rootbroker requests. Ctrl+C quits.")
 	reader := bufio.NewReader(os.Stdin)
 	seen := make(map[string]bool)
 	for {
 		response, err := getPending(socketPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "hostctl-admin: %v\n", err)
+			fmt.Fprintf(os.Stderr, "rootbroker-admin: %v\n", err)
 			return 1
 		}
 		var current *broker.PendingView

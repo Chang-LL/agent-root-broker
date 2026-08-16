@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve hostctl. This is security-sensitive Linux software: a small, reviewable
+Thanks for helping improve rootbroker. This is security-sensitive Linux software: a small, reviewable
 change with a clear invariant is preferred to a broad abstraction.
 
 ## Development setup

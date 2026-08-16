@@ -67,7 +67,7 @@ func TestPlatformGrantStatusRevoke(t *testing.T) {
 	}
 	defer func() { _ = unix.Close(fd) }()
 	if _, present, err := readACL(fd, defaultACLName); err != nil || present {
-		t.Fatalf("hostctl-created default ACL remains: present=%v err=%v", present, err)
+		t.Fatalf("rootbroker-created default ACL remains: present=%v err=%v", present, err)
 	}
 }
 

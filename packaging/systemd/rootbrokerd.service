@@ -4,7 +4,7 @@ After=local-fs.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/sbin/hostctld --config /etc/hostctl/config.json
+ExecStart=/usr/local/sbin/rootbrokerd --config /etc/rootbroker/config.json
 Restart=on-failure
 RestartSec=2s
 UMask=0077

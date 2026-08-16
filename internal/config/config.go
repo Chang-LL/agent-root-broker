@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-const DefaultPath = "/etc/hostctl/config.json"
+const DefaultPath = "/etc/rootbroker/config.json"
 
 type Config struct {
 	RuntimeDir                 string   `json:"runtime_dir"`
@@ -34,13 +34,13 @@ type Config struct {
 
 func Default() Config {
 	return Config{
-		RuntimeDir:                 "/run/hostctl",
-		RequestSocket:              "/run/hostctl/request.sock",
-		AdminSocket:                "/run/hostctl/admin.sock",
-		RequestGroup:               "hostctl-agent",
-		AdminGroup:                 "hostctl-approver",
+		RuntimeDir:                 "/run/rootbroker",
+		RequestSocket:              "/run/rootbroker/request.sock",
+		AdminSocket:                "/run/rootbroker/admin.sock",
+		RequestGroup:               "rootbroker-agent",
+		AdminGroup:                 "rootbroker-approver",
 		AgentUsers:                 []string{"grok-agent"},
-		AgentExecutables:           []string{"/usr/local/libexec/grok-hostctl-bin"},
+		AgentExecutables:           []string{"/usr/local/libexec/grok-rootbroker-bin"},
 		AllowedCWDRoots:            []string{"/"},
 		CleanPath:                  "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 		DefaultTimeoutSeconds:      300,

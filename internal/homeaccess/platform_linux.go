@@ -57,7 +57,7 @@ func platformManage(action, home string, uid uint32) (string, error) {
 }
 
 func walkFD(fd int, rootDevice uint64, action string, uid uint32) error {
-	file := os.NewFile(uintptr(fd), "hostctl-home")
+	file := os.NewFile(uintptr(fd), "rootbroker-home")
 	if file == nil {
 		_ = unix.Close(fd)
 		return fmt.Errorf("open home directory file descriptor")
@@ -147,7 +147,7 @@ func grantDefault(fd int, uid uint32, base aclValue) error {
 	if !present {
 		value = base
 		if err := setXattr(fd, markerName(uid), []byte{1}); err != nil {
-			return fmt.Errorf("mark hostctl-created default ACL: %w", err)
+			return fmt.Errorf("mark rootbroker-created default ACL: %w", err)
 		}
 	}
 	value.grantUser(uid, 7)
@@ -237,11 +237,11 @@ func writeACL(fd int, name string, value aclValue) error {
 }
 
 func markerName(uid uint32) string {
-	return "trusted.hostctl.default-created." + strconv.FormatUint(uint64(uid), 10)
+	return "trusted.rootbroker.default-created." + strconv.FormatUint(uint64(uid), 10)
 }
 
 func homeMarkerName(uid uint32) string {
-	return "trusted.hostctl.home-access-complete." + strconv.FormatUint(uint64(uid), 10)
+	return "trusted.rootbroker.home-access-complete." + strconv.FormatUint(uint64(uid), 10)
 }
 
 func getXattr(fd int, name string) ([]byte, bool, error) {

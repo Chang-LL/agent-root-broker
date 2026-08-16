@@ -5,6 +5,11 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Changed
+
+- Renamed the private pre-alpha project and every installed identity/path from `hostctl` to
+  `rootbroker` before public release. Legacy command aliases are intentionally not installed.
+
 ### Added
 
 - Local human approval with command, message, and session scopes.
