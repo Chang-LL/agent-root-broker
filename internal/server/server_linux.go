@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"os/user"
@@ -24,6 +23,7 @@ import (
 	"hostctl/internal/executor"
 	"hostctl/internal/homeaccess"
 	"hostctl/internal/proc"
+	"hostctl/internal/transport"
 )
 
 const maxRequestBytes = 256 * 1024
@@ -67,29 +67,35 @@ type homeAccessEnvelope struct {
 
 type listener struct {
 	plane    string
-	listener *net.UnixListener
+	listener transport.Listener
 	broker   *broker.Broker
 	home     *homeaccess.Manager
 	cfg      config.Config
 }
 
 func Run(cfg config.Config) error {
+	return RunWithTransport(cfg, transport.UnixFactory{})
+}
+
+// RunWithTransport is the compile-time transport seam. The shipped request
+// handlers intentionally accept only kernel-authenticated Unix peers.
+func RunWithTransport(cfg config.Config, factory transport.Factory) error {
 	if cfg.RequireRootDaemon && os.Geteuid() != 0 {
 		return fmt.Errorf("hostctld must run as root")
 	}
 	if err := prepareRuntimeDir(cfg); err != nil {
 		return err
 	}
-	requestListener, err := openSocket(cfg.RequestSocket, cfg.RequestGroup)
+	requestListener, err := factory.Listen(transport.Endpoint{Plane: "request", Address: cfg.RequestSocket, AccessGroup: cfg.RequestGroup})
 	if err != nil {
 		return err
 	}
-	defer closeSocket(requestListener, cfg.RequestSocket)
-	adminListener, err := openSocket(cfg.AdminSocket, cfg.AdminGroup)
+	defer func() { _ = requestListener.Close() }()
+	adminListener, err := factory.Listen(transport.Endpoint{Plane: "admin", Address: cfg.AdminSocket, AccessGroup: cfg.AdminGroup})
 	if err != nil {
 		return err
 	}
-	defer closeSocket(adminListener, cfg.AdminSocket)
+	defer func() { _ = adminListener.Close() }()
 
 	state := broker.New(cfg)
 	requestServer := &listener{plane: "request", listener: requestListener, broker: state, cfg: cfg}
@@ -125,67 +131,11 @@ func prepareRuntimeDir(cfg config.Config) error {
 	return nil
 }
 
-func openSocket(path, groupName string) (*net.UnixListener, error) {
-	if err := removeStaleSocket(path); err != nil {
-		return nil, err
-	}
-	address := &net.UnixAddr{Name: path, Net: "unix"}
-	result, err := net.ListenUnix("unix", address)
-	if err != nil {
-		return nil, fmt.Errorf("listen on %s: %w", path, err)
-	}
-	group, err := user.LookupGroup(groupName)
-	if err != nil {
-		_ = result.Close()
-		return nil, fmt.Errorf("lookup group %s: %w", groupName, err)
-	}
-	gid, err := strconv.Atoi(group.Gid)
-	if err != nil {
-		_ = result.Close()
-		return nil, fmt.Errorf("parse group ID %s: %w", group.Gid, err)
-	}
-	if err := os.Chown(path, os.Geteuid(), gid); err != nil {
-		_ = result.Close()
-		return nil, fmt.Errorf("own socket %s: %w", path, err)
-	}
-	if err := os.Chmod(path, 0o660); err != nil {
-		_ = result.Close()
-		return nil, fmt.Errorf("set socket mode %s: %w", path, err)
-	}
-	return result, nil
-}
-
-func removeStaleSocket(path string) error {
-	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("inspect socket path: %w", err)
-	}
-	if info.Mode()&os.ModeSocket == 0 {
-		return fmt.Errorf("refusing to remove non-socket path: %s", path)
-	}
-	if connection, dialErr := net.DialTimeout("unix", path, 150_000_000); dialErr == nil {
-		_ = connection.Close()
-		return fmt.Errorf("another daemon is listening on %s", path)
-	}
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("remove stale socket: %w", err)
-	}
-	return nil
-}
-
-func closeSocket(listener *net.UnixListener, path string) {
-	_ = listener.Close()
-	_ = os.Remove(path)
-}
-
 func (s *listener) serve() error {
 	for {
-		connection, err := s.listener.AcceptUnix()
+		connection, err := s.listener.Accept()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
+			if errors.Is(err, transport.ErrClosed) {
 				return nil
 			}
 			return fmt.Errorf("accept %s socket: %w", s.plane, err)
@@ -194,11 +144,15 @@ func (s *listener) serve() error {
 	}
 }
 
-func (s *listener) handle(connection *net.UnixConn) {
+func (s *listener) handle(connection transport.Connection) {
 	defer func() { _ = connection.Close() }()
-	pid, uid, _, err := peerCredentials(connection)
+	peer, err := connection.Peer()
 	if err != nil {
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "unauthorized", Message: err.Error()}})
+		return
+	}
+	if peer.Kind != transport.UnixPeerKind {
+		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "unauthorized", Message: "transport identity is not supported by this server"}})
 		return
 	}
 	reader := bufio.NewReaderSize(connection, maxRequestBytes+1)
@@ -213,13 +167,13 @@ func (s *listener) handle(connection *net.UnixConn) {
 		return
 	}
 	if s.plane == "request" {
-		s.handleRequest(connection, reader, request, pid, uid)
+		s.handleRequest(connection, reader, request, peer.PID, peer.UID)
 		return
 	}
-	s.handleAdmin(connection, request, uid)
+	s.handleAdmin(connection, request, peer.UID)
 }
 
-func (s *listener) handleRequest(connection *net.UnixConn, reader *bufio.Reader, request requestEnvelope, pid int, uid uint32) {
+func (s *listener) handleRequest(connection io.Writer, reader *bufio.Reader, request requestEnvelope, pid int, uid uint32) {
 	if !authorized(uid, s.cfg.AgentUsers, s.cfg.RequestGroup) {
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "unauthorized", Message: "peer is not an authorized agent user"}})
 		return
@@ -263,7 +217,7 @@ func (s *listener) handleRequest(connection *net.UnixConn, reader *bufio.Reader,
 	}
 }
 
-func (s *listener) handleAdmin(connection *net.UnixConn, request requestEnvelope, uid uint32) {
+func (s *listener) handleAdmin(connection io.Writer, request requestEnvelope, uid uint32) {
 	if !authorized(uid, s.cfg.ApproverUsers, s.cfg.AdminGroup) {
 		writeJSON(connection, errorEnvelope{Error: &broker.Error{Code: "unauthorized", Message: "peer is not an authorized approver"}})
 		return
@@ -350,24 +304,6 @@ func contains[T comparable](values []T, wanted T) bool {
 		}
 	}
 	return false
-}
-
-func peerCredentials(connection *net.UnixConn) (int, uint32, uint32, error) {
-	raw, err := connection.SyscallConn()
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	var credentials *syscall.Ucred
-	var socketErr error
-	if err := raw.Control(func(fd uintptr) {
-		credentials, socketErr = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
-	}); err != nil {
-		return 0, 0, 0, err
-	}
-	if socketErr != nil {
-		return 0, 0, 0, socketErr
-	}
-	return int(credentials.Pid), credentials.Uid, credentials.Gid, nil
 }
 
 func writeJSON(writer io.Writer, value any) {

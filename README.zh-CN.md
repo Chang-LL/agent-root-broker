@@ -41,7 +41,7 @@ fail-open 的，因此它们**不是**安全边界。真正的边界是专用 OS
 
 ### 扩展边界
 
-实现中现在有三个明确的扩展缝：
+实现中现在有四个明确的扩展缝：
 
 - `agent.HookAdapter` 把厂商 hook 字段转换为四种规范化生命周期事件，并提取 shell 命令供
   集成侧 guardrail 检查。Grok 字段只存在于 `internal/integrations/grok`，server 和 broker
@@ -53,10 +53,14 @@ fail-open 的，因此它们**不是**安全边界。真正的边界是专用 OS
 - 核心安装器负责主机账户/组、hostctl binary、daemon 配置、systemd 和可选 home ACL；经过
   allowlist、带契约版本的 integration profile 负责 agent executable、launcher、hooks、托管
   资源和 profile 专用 sudoers 规则。Grok 是 `profiles/grok` 中的第一个 profile。
+- `transport.Factory` 向 server 提供已经认证的 connection 和 peer identity。随项目提供的
+  `UnixFactory` 负责本地 socket 创建、权限、过期 socket 处理和 Linux `SO_PEERCRED`。server
+  当前只接受这种由内核认证的 identity kind，因此未来的网络实现不能仅靠实现 interface 就
+  获得权限。
 
-agent adapter 和决策 provider 目前是编译时扩展点，安装 profile 则是从内置 allowlist 选择、
-以 root 执行的 shell 代码。Unix socket 仍是唯一已实现的传输。让传输可替换、决定是否稳定
-公开扩展 API，仍属于路线图工作。新增 profile、provider 或传输必须显式启用、可审计，并声明
+agent adapter、决策 provider 和 transport 目前是编译时扩展点，安装 profile 则是从内置
+allowlist 选择、以 root 执行的 shell 代码。Unix socket 仍是唯一已实现且被接受的传输；是否
+稳定公开扩展 API 仍属于路线图工作。新增 profile、provider 或传输必须显式启用、可审计，并声明
 自己的信任模型，不能静默继承默认 Grok/本地人工模式的安全结论。
 
 ## 审批范围

@@ -44,7 +44,7 @@ and broker's default-deny state are the boundary.
 
 ### Extension boundaries
 
-The implementation now has three explicit seams:
+The implementation now has four explicit seams:
 
 - `agent.HookAdapter` converts vendor hook fields into four normalized lifecycle events and extracts
   shell commands for integration-side guardrails. Grok fields exist only in
@@ -58,11 +58,15 @@ The implementation now has three explicit seams:
   and optional home ACLs. An allowlisted, versioned integration profile owns the agent executable,
   launcher, hooks, managed assets, and profile-specific sudoers rule. Grok is the first profile in
   `profiles/grok`.
+- `transport.Factory` supplies authenticated connections and peer identity to the server. The
+  shipped `UnixFactory` owns local socket creation, permissions, stale-socket handling, and Linux
+  `SO_PEERCRED`. The server currently accepts only this kernel-authenticated identity kind, so a
+  future network implementation cannot gain authority merely by implementing the interface.
 
-Agent adapters and decision providers are currently compile-time extension points, while installer
+Agent adapters, decision providers, and transports are currently compile-time extension points, while installer
 profiles are root-executed shell code selected from a built-in allowlist. The Unix sockets remain the
-only implemented transport. Making transport replaceable and deciding whether to stabilize public
-extension APIs remain roadmap work. Any added profile, provider, or transport must be opt-in,
+only implemented and accepted transport. Deciding whether to stabilize public extension APIs remains
+roadmap work. Any added profile, provider, or transport must be opt-in,
 auditable, and document its own trust model instead of silently inheriting the security claims of
 the default Grok/local-human mode.
 

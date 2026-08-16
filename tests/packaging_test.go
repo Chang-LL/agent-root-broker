@@ -236,3 +236,27 @@ func TestVendorPayloadsStayBehindIntegrationAdapters(t *testing.T) {
 		t.Fatal("approval provider boundary is missing")
 	}
 }
+
+func TestUnixDetailsStayBehindTransportBoundary(t *testing.T) {
+	contract := projectFile(t, "internal", "transport", "transport.go")
+	unixTransport := projectFile(t, "internal", "transport", "unix_linux.go")
+	server := projectFile(t, "internal", "server", "server_linux.go")
+	for _, wanted := range []string{"type Factory interface", "type Listener interface", "type Connection interface", "type Peer struct"} {
+		if !strings.Contains(contract, wanted) {
+			t.Fatalf("transport contract is missing %q", wanted)
+		}
+	}
+	for _, detail := range []string{"SO_PEERCRED", "net.ListenUnix", "GetsockoptUcred"} {
+		if strings.Contains(server, detail) {
+			t.Fatalf("Unix transport detail %q leaked into server", detail)
+		}
+		if !strings.Contains(unixTransport, detail) {
+			t.Fatalf("Unix transport is missing %q", detail)
+		}
+	}
+	for _, wanted := range []string{"transport.Factory", "transport.UnixFactory", "transport.UnixPeerKind"} {
+		if !strings.Contains(server, wanted) {
+			t.Fatalf("server transport seam is missing %q", wanted)
+		}
+	}
+}
