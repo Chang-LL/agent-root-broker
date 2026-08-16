@@ -1,7 +1,11 @@
 #!/bin/sh
 set -eu
 
-PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_PATH=$0
+if [ -L "$SCRIPT_PATH" ]; then
+  SCRIPT_PATH=$(/usr/bin/readlink -f -- "$SCRIPT_PATH")
+fi
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
 STATE_PATH=/var/lib/hostctl/install-state
 PURGE_AGENT_ACCOUNT=0
 SKIP_HOME_REVOKE=0
