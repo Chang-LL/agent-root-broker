@@ -335,6 +335,7 @@ if [ "$SERVICE_READY" -ne 1 ]; then
     echo "restoring previous hostctl binary: $PREVIOUS_HOSTCTL_TARGET" >&2
     /bin/ln -sfn "$PREVIOUS_HOSTCTL_TARGET" /usr/local/libexec/hostctl-bin
     if [ "$SERVICE_WAS_ACTIVE" -eq 1 ]; then
+      /usr/bin/systemctl reset-failed hostctld.service >/dev/null 2>&1 || true
       /usr/bin/systemctl restart hostctld.service || true
     fi
   elif [ "$SERVICE_WAS_ENABLED" -eq 0 ]; then
