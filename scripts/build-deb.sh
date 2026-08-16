@@ -54,7 +54,10 @@ ln -s ../libexec/rootbroker/rootbroker "$PACKAGE_ROOT/usr/bin/rootbroker"
 ln -s ../libexec/rootbroker/rootbroker "$PACKAGE_ROOT/usr/bin/rootbroker-admin"
 ln -s ../libexec/rootbroker/rootbroker "$PACKAGE_ROOT/usr/sbin/rootbrokerd"
 
-install -m 0755 "$PROJECT_DIR/install.sh" "$PROJECT_DIR/uninstall.sh" "$INSTALLER_ROOT/"
+install -m 0755 "$PROJECT_DIR/install.sh" "$PROJECT_DIR/uninstall.sh" \
+  "$PROJECT_DIR/migrate-private-prealpha.sh" "$INSTALLER_ROOT/"
+install -m 0755 "$PROJECT_DIR/migrate-private-prealpha.sh" \
+  "$PACKAGE_ROOT/usr/sbin/rootbroker-migrate-private-prealpha"
 cp -R "$PROJECT_DIR/profiles" "$INSTALLER_ROOT/profiles"
 install -m 0644 "$PROJECT_DIR/packaging/config/config.json.in" "$INSTALLER_ROOT/packaging/config/"
 install -m 0644 "$PROJECT_DIR/packaging/systemd/rootbrokerd.service" "$INSTALLER_ROOT/packaging/systemd/"

@@ -109,6 +109,31 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	}
 }
 
+func TestStatelessPreAlphaMigrationFailsClosed(t *testing.T) {
+	migration := projectFile(t, "migrate-private-prealpha.sh")
+	for _, wanted := range []string{
+		`"hostctl 0.2.0-dev"*`,
+		"secure_root_file",
+		"exact_symlink",
+		"group_has_only",
+		"unsupported legacy broker version",
+		"agent account still has running processes",
+		"hostctl-admin home-access revoke",
+		"systemctl disable --now hostctld.service",
+		"Preserved agent account and home",
+		"CHECK_ONLY=1",
+	} {
+		if !strings.Contains(migration, wanted) {
+			t.Fatalf("stateless migration is missing safety behavior %q", wanted)
+		}
+	}
+	for _, forbidden := range []string{"eval ", "userdel", `rm -rf -- "$AGENT_HOME"`} {
+		if strings.Contains(migration, forbidden) {
+			t.Fatalf("stateless migration contains forbidden behavior %q", forbidden)
+		}
+	}
+}
+
 func TestInstallerKeepsGrokDetailsBehindProfile(t *testing.T) {
 	installer := projectFile(t, "install.sh")
 	profile := projectFile(t, "profiles", "grok", "profile.sh")
@@ -184,6 +209,9 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(release, "uninstall.sh") {
 		t.Fatal("release archive omits uninstaller")
 	}
+	if !strings.Contains(release, "migrate-private-prealpha.sh") {
+		t.Fatal("release archive omits private pre-alpha migration tool")
+	}
 	for _, wanted := range []string{"scripts/build-deb.sh", "scripts/render-homebrew-formula.sh", "release/*.deb", "release/rootbroker.rb"} {
 		if !strings.Contains(release, wanted) {
 			t.Fatalf("release workflow is missing package artifact behavior %q", wanted)
@@ -195,6 +223,13 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	debBuilder := projectFile(t, "scripts", "build-deb.sh")
 	if !strings.Contains(debBuilder, `rootbroker_${FILE_VERSION}_${ARCH}.deb`) {
 		t.Fatal("Debian release filename may be rewritten by GitHub")
+	}
+	if !strings.Contains(debBuilder, "rootbroker-migrate-private-prealpha") {
+		t.Fatal("Debian package omits the private pre-alpha migration command")
+	}
+	formula := projectFile(t, "packaging", "homebrew", "rootbroker.rb.in")
+	if !strings.Contains(formula, "rootbroker-migrate-private-prealpha") {
+		t.Fatal("Homebrew formula omits the private pre-alpha migration command")
 	}
 	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
 		!strings.Contains(release, `git status --porcelain`) {

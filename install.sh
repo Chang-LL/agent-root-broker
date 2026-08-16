@@ -78,8 +78,9 @@ done
 
 if [ -f /var/lib/hostctl/install-state ] || [ -e /etc/systemd/system/hostctld.service ]; then
   echo "A private pre-alpha hostctl installation is still present." >&2
-  echo "Close active Grok sessions, run: sudo /usr/local/sbin/hostctl-uninstall" >&2
-  echo "Then rerun this installer. See MIGRATION.md; add --allow-approver-home-rw to restore optional full-home access." >&2
+  echo "Close active Grok sessions. See MIGRATION.md." >&2
+  echo "Use hostctl-uninstall when present; earliest stateless builds require migrate-private-prealpha.sh." >&2
+  echo "Then rerun this installer; add --allow-approver-home-rw only to restore optional full-home access." >&2
   exit 2
 fi
 

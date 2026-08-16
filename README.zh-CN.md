@@ -129,7 +129,9 @@ sudo "$(brew --prefix)/bin/rootbroker-setup" \
 `--profile grok --agent-bin PATH` 的别名保留。
 
 私有预览版曾使用有冲突的名称 `hostctl`。安装 `rootbroker` 前必须先移除该版本；安装器会检测
-并给出迁移提示。详见 [MIGRATION.md](MIGRATION.md)。系统不会安装旧命令兼容别名。
+并给出迁移提示。带状态的后期预览版使用已安装的卸载器，最早的无状态预览版则使用默认拒绝的
+`migrate-private-prealpha.sh` 工具。详见 [MIGRATION.md](MIGRATION.md)。系统不会安装旧命令兼容
+别名。
 
 安装器会：
 

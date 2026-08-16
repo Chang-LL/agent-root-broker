@@ -29,6 +29,11 @@ class Rootbroker < Formula
       exec "#{libexec}/install.sh" --rootbroker-bin "#{libexec}/rootbroker" "$@"
     SH
     (bin/"rootbroker-setup").chmod 0755
+    (bin/"rootbroker-migrate-private-prealpha").write <<~SH
+      #!/bin/sh
+      exec "#{libexec}/migrate-private-prealpha.sh" "$@"
+    SH
+    (bin/"rootbroker-migrate-private-prealpha").chmod 0755
   end
 
   def caveats

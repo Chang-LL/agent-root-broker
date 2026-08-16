@@ -129,6 +129,13 @@ jobs:
         with:
           go-version: "1.26.x"
           cache: false
+      - name: Stateless private pre-alpha migration test
+        run: |
+          sudo env \
+            "PATH=$PATH" \
+            ROOTBROKER_SYSTEM_TEST_ALLOW_MUTATION=1 \
+            ROOTBROKER_TEST_APPROVER_USER=rootbroker-test-approver \
+            ./tests/migrate_private_prealpha_linux.sh
       - name: Full install, reinstall, upgrade, and isolation test
         run: |
           sudo env \

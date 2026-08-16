@@ -53,7 +53,7 @@ jobs:
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/rootbroker" ./cmd/rootbroker
             cyclonedx-gomod bin -json -output "$stage/rootbroker.bom.cdx.json" -version "$VERSION" "$stage/rootbroker"
-            cp install.sh uninstall.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
+            cp install.sh uninstall.sh migrate-private-prealpha.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
               SECURITY.md CONTRIBUTING.md SUPPORT.md COMPATIBILITY.md UPGRADE.md UNINSTALL.md \
               MIGRATION.md TROUBLESHOOTING.md THREAT_MODEL.md CHANGELOG.md "$stage/"
             cp -R profiles "$stage/"
