@@ -75,6 +75,7 @@ func TestInstallerUsesUnprivilegedSETENVTargetAndStaticBinary(t *testing.T) {
 	}
 	for _, wanted := range []string{
 		"/usr/local/libexec/hostctl-bin",
+		"/usr/local/sbin/hostctl-uninstall",
 		"HOSTCTL_OBJECT",
 		"hostctld --check-config",
 		"profile_install_sudoers",

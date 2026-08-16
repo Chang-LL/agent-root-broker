@@ -109,8 +109,11 @@ profile_uninstall "$AGENT_HOME" "$TMP_DIR"
   /etc/hostctl/config.json \
   /usr/local/bin/hostctl \
   /usr/local/bin/hostctl-admin \
+  /usr/local/sbin/hostctl-uninstall \
   /usr/local/sbin/hostctld \
-  /usr/local/libexec/hostctl-bin
+  /usr/local/libexec/hostctl-bin \
+  /usr/local/share/hostctl/installer/uninstall.sh \
+  /usr/local/share/hostctl/installer/profiles/grok/profile.sh
 while IFS= read -r hostctl_object; do
   [ -n "$hostctl_object" ] || continue
   /bin/rm -f -- "$hostctl_object"
@@ -142,6 +145,9 @@ if [ "$CREATED_APPROVER_GROUP" -eq 1 ]; then
   /usr/sbin/groupdel hostctl-approver >/dev/null 2>&1 || true
 fi
 /bin/rmdir /run/hostctl /etc/hostctl /etc/grok /var/lib/hostctl \
+  /usr/local/share/hostctl/installer/profiles/grok \
+  /usr/local/share/hostctl/installer/profiles \
+  /usr/local/share/hostctl/installer \
   /usr/local/share/hostctl /usr/local/libexec 2>/dev/null || true
 
 echo "hostctl uninstalled."

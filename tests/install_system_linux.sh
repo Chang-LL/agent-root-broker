@@ -35,6 +35,7 @@ cleanup() {
       /usr/local/bin/grok-safe \
       /usr/local/bin/hostctl \
       /usr/local/bin/hostctl-admin \
+      /usr/local/sbin/hostctl-uninstall \
       /usr/local/sbin/hostctld \
       /usr/local/libexec/hostctl-bin \
       /usr/local/libexec/hostctl-grok-hook \
@@ -83,6 +84,7 @@ for path in \
   /usr/local/bin/grok-safe \
   /usr/local/bin/hostctl \
   /usr/local/bin/hostctl-admin \
+  /usr/local/sbin/hostctl-uninstall \
   /usr/local/sbin/hostctld \
   /usr/local/libexec/hostctl-bin \
   /usr/local/libexec/hostctl-grok-hook \
@@ -365,7 +367,7 @@ fi
 # Uninstall through the shipped release layout. Managed system files, users,
 # groups, versioned binaries, hooks, and ACLs must be removed; agent home data
 # is deliberately preserved.
-"$RELEASE_DIR/uninstall.sh" --purge-agent-account >"$TEST_DIR/uninstall.log"
+/usr/local/sbin/hostctl-uninstall --purge-agent-account >"$TEST_DIR/uninstall.log"
 ! /usr/bin/getent passwd "$AGENT_USER" >/dev/null || fail "uninstall left the agent account"
 ! /usr/bin/getent group "$AGENT_USER" >/dev/null || fail "uninstall left the agent primary group"
 ! /usr/bin/getent group hostctl-agent >/dev/null || fail "uninstall left the request group"
@@ -380,6 +382,7 @@ for path in \
   /usr/local/bin/grok-safe \
   /usr/local/bin/hostctl \
   /usr/local/bin/hostctl-admin \
+  /usr/local/sbin/hostctl-uninstall \
   /usr/local/sbin/hostctld \
   /usr/local/libexec/hostctl-bin \
   "$OLD_OBJECT" \

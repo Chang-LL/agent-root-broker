@@ -87,6 +87,7 @@ case "$PROFILE" in
 esac
 PROFILE_SCRIPT="$PROFILE_DIR/profile.sh"
 [ -f "$PROFILE_SCRIPT" ] || { echo "integration profile is incomplete: $PROFILE_SCRIPT" >&2; exit 2; }
+[ -f "$PROJECT_DIR/uninstall.sh" ] || { echo "uninstaller is missing: $PROJECT_DIR/uninstall.sh" >&2; exit 2; }
 # shellcheck source=profiles/grok/profile.sh
 . "$PROFILE_SCRIPT"
 [ "${PROFILE_CONTRACT_VERSION:-}" = 2 ] || { echo "unsupported profile contract for $PROFILE" >&2; exit 2; }
@@ -282,6 +283,10 @@ fi
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/bin/hostctl-admin
 /bin/ln -sfn /usr/local/libexec/hostctl-bin /usr/local/sbin/hostctld
 profile_install "$AGENT_BIN" "$AGENT_USER" "$TMP_DIR"
+/usr/bin/install -d -o root -g root -m 0755 /usr/local/share/hostctl/installer/profiles/grok
+/usr/bin/install -o root -g root -m 0755 "$PROJECT_DIR/uninstall.sh" /usr/local/share/hostctl/installer/uninstall.sh
+/usr/bin/install -o root -g root -m 0644 "$PROFILE_SCRIPT" /usr/local/share/hostctl/installer/profiles/grok/profile.sh
+/bin/ln -sfn /usr/local/share/hostctl/installer/uninstall.sh /usr/local/sbin/hostctl-uninstall
 
 /usr/bin/install -d -o root -g root -m 0755 /etc/hostctl /var/lib/hostctl
 /usr/bin/install -o root -g root -m 0644 "$TMP_DIR/config.json" /etc/hostctl/config.json
@@ -313,7 +318,18 @@ profile_install_sudoers "$TMP_DIR"
 /usr/bin/install -o root -g root -m 0644 "$PROJECT_DIR/packaging/systemd/hostctld.service" /etc/systemd/system/hostctld.service
 /usr/bin/systemctl daemon-reload
 /usr/bin/systemctl enable hostctld.service
-if ! /usr/bin/systemctl restart hostctld.service; then
+SERVICE_READY=0
+if /usr/bin/systemctl restart hostctld.service; then
+  for _ in $(/usr/bin/seq 1 100); do
+    if /usr/bin/systemctl is-active --quiet hostctld.service && \
+      [ -S /run/hostctl/request.sock ] && [ -S /run/hostctl/admin.sock ]; then
+      SERVICE_READY=1
+      break
+    fi
+    /bin/sleep 0.05
+  done
+fi
+if [ "$SERVICE_READY" -ne 1 ]; then
   echo "new hostctld failed to start" >&2
   if [ -n "$PREVIOUS_HOSTCTL_TARGET" ] && [ -e "$PREVIOUS_HOSTCTL_TARGET" ]; then
     echo "restoring previous hostctl binary: $PREVIOUS_HOSTCTL_TARGET" >&2
