@@ -1,8 +1,8 @@
 # Support
 
-rootbroker is alpha software. Use GitHub Issues for reproducible bugs, installation failures, and
-focused questions. Feature proposals should describe the intended trust model, not only the user
-interface.
+Agent Root Broker (`rootbroker`) is alpha software. Use GitHub Issues for reproducible bugs,
+installation failures, and focused questions. Feature proposals should describe the intended trust
+model, not only the user interface.
 
 Before opening an issue, check [COMPATIBILITY.md](COMPATIBILITY.md) and
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md). Include:

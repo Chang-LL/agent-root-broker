@@ -5,6 +5,16 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.3] - 2026-08-18
+
+### Changed
+
+- Renamed the public project and repository to **Agent Root Broker** / `agent-root-broker` so its
+  AI-agent purpose is visible in search and package metadata.
+- Kept the `rootbroker` CLI, package, service, socket, identity, and configuration names stable;
+  this branding change requires no host migration.
+- Moved the Go module to `github.com/Chang-LL/agent-root-broker` and updated public project links.
+
 ## [0.1.0-alpha.2] - 2026-08-16
 
 ### Fixed
@@ -37,6 +47,7 @@ project intends to use Semantic Versioning after the public alpha contract is de
 - Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
   explicit threat model.
 
-[Unreleased]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.2...HEAD
-[0.1.0-alpha.2]: https://github.com/Chang-LL/rootbroker/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
-[0.1.0-alpha.1]: https://github.com/Chang-LL/rootbroker/releases/tag/v0.1.0-alpha.1
+[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.3...HEAD
+[0.1.0-alpha.3]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
+[0.1.0-alpha.2]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
+[0.1.0-alpha.1]: https://github.com/Chang-LL/agent-root-broker/releases/tag/v0.1.0-alpha.1

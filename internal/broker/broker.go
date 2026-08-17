@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Chang-LL/rootbroker/internal/agent"
-	"github.com/Chang-LL/rootbroker/internal/approval"
-	"github.com/Chang-LL/rootbroker/internal/config"
-	"github.com/Chang-LL/rootbroker/internal/executor"
-	"github.com/Chang-LL/rootbroker/internal/proc"
+	"github.com/Chang-LL/agent-root-broker/internal/agent"
+	"github.com/Chang-LL/agent-root-broker/internal/approval"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/executor"
+	"github.com/Chang-LL/agent-root-broker/internal/proc"
 )
 
 type Error struct {

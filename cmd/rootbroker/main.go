@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Chang-LL/rootbroker/internal/commands"
-	"github.com/Chang-LL/rootbroker/internal/config"
-	"github.com/Chang-LL/rootbroker/internal/server"
+	"github.com/Chang-LL/agent-root-broker/internal/commands"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/server"
 )
 
 var version = "dev"

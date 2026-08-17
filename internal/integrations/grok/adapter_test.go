@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/agent-root-broker/internal/agent"
 )
 
 func TestNormalizeLifecycle(t *testing.T) {

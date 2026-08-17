@@ -1,4 +1,4 @@
-module github.com/Chang-LL/rootbroker
+module github.com/Chang-LL/agent-root-broker
 
 go 1.25.0
 

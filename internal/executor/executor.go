@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
 )
 
 var blockedExecutables = map[string]bool{

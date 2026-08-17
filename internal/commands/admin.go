@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Chang-LL/rootbroker/internal/broker"
-	"github.com/Chang-LL/rootbroker/internal/client"
+	"github.com/Chang-LL/agent-root-broker/internal/broker"
+	"github.com/Chang-LL/agent-root-broker/internal/client"
 )
 
 type pendingResponse struct {

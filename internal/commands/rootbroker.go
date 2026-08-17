@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/Chang-LL/rootbroker/internal/client"
+	"github.com/Chang-LL/agent-root-broker/internal/client"
 )
 
 type commandResponse struct {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Chang-LL/rootbroker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
 )
 
 func testConfig() config.Config {
