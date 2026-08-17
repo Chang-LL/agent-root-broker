@@ -3,7 +3,7 @@ name: rootbroker-admin
 description: Use when a host administration task requires root privileges, including mounting disks, managing system services, installing operating-system packages, editing protected configuration, or inspecting root-only state. Routes the exact command through rootbroker for human approval and explains command, message, and session approval behavior.
 ---
 
-# Rootbroker Admin
+# Agent Root Broker Administration
 
 Use `rootbroker` only after unprivileged inspection shows that root access is required.
 

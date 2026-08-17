@@ -1,6 +1,6 @@
 class Rootbroker < Formula
-  desc "Human-approved root command broker for local AI agents"
-  homepage "https://github.com/Chang-LL/rootbroker"
+  desc "Human-approved sudo/root broker for local AI agents"
+  homepage "https://github.com/Chang-LL/agent-root-broker"
   version "@VERSION@"
   license "MIT"
 

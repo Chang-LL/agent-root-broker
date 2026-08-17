@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Chang-LL/rootbroker/internal/config"
-	"github.com/Chang-LL/rootbroker/internal/homeaccess"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/homeaccess"
 )
 
 // Maintenance exposes only recovery operations that must work without a

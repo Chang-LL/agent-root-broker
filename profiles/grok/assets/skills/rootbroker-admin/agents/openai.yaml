@@ -1,4 +1,4 @@
 interface:
-  display_name: "Rootbroker Administration"
+  display_name: "Agent Root Broker Administration"
   short_description: "Run approved root commands through rootbroker"
   default_prompt: "Use $rootbroker-admin to complete a host administration task with approval."

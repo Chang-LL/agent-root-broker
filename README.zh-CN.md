@@ -1,14 +1,14 @@
 [English](README.md) | **简体中文**
 
-# rootbroker
+# Agent Root Broker
 
-[![CI](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml)
+[![CI](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-`rootbroker` 是一个小型 Linux 权限代理，让本地 AI agent 可以申请执行任意 root 命令，而无需
-把 `sudo`、Docker、LXD 或其他持久化提权路径直接交给 agent。所有提权请求默认拒绝，必须
-通过独立的 Unix socket 等待人工决策。
+**Agent Root Broker**（命令名为 `rootbroker`）是一个小型 Linux 权限代理，让本地 AI agent
+可以申请执行任意 root 命令，而无需把 `sudo`、Docker、LXD 或其他持久化提权路径直接交给
+agent。所有提权请求默认拒绝，必须通过独立的 Unix socket 等待人工决策。
 
 首个集成目标是 Grok Build。agent hooks 在进入 broker 前先由 adapter 规范化，审批行为则
 通过独立的决策 provider interface 选择。它们在 Alpha 版本中是内部 Go 扩展点，还不是稳定

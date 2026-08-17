@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Chang-LL/rootbroker/internal/agent"
+	"github.com/Chang-LL/agent-root-broker/internal/agent"
 )
 
 // Adapter translates Grok Build hooks into rootbroker's vendor-neutral contracts.

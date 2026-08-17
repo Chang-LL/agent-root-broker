@@ -1,14 +1,15 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# rootbroker
+# Agent Root Broker
 
-[![CI](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/rootbroker/actions/workflows/codeql.yml)
+[![CI](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-`rootbroker` is a small Linux broker for letting a local AI agent request arbitrary root commands
-without giving the agent `sudo`, Docker, LXD, or another persistent path to root. Every escalation
-is denied by default and waits for a human decision on a separate Unix socket.
+**Agent Root Broker** (`rootbroker`) is a small Linux broker for letting a local AI agent request
+arbitrary root commands without giving the agent `sudo`, Docker, LXD, or another persistent path
+to root. Every escalation is denied by default and waits for a human decision on a separate Unix
+socket.
 
 The initial integration targets Grok Build. Agent hooks are normalized through an adapter before
 they reach the broker, while approval behavior is selected through a separate decision-provider

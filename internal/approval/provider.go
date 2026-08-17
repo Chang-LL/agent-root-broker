@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Chang-LL/rootbroker/internal/executor"
-	"github.com/Chang-LL/rootbroker/internal/proc"
+	"github.com/Chang-LL/agent-root-broker/internal/executor"
+	"github.com/Chang-LL/agent-root-broker/internal/proc"
 )
 
 const (

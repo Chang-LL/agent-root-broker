@@ -5,9 +5,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/Chang-LL/rootbroker/internal/agent"
-	"github.com/Chang-LL/rootbroker/internal/client"
-	"github.com/Chang-LL/rootbroker/internal/integrations/grok"
+	"github.com/Chang-LL/agent-root-broker/internal/agent"
+	"github.com/Chang-LL/agent-root-broker/internal/client"
+	"github.com/Chang-LL/agent-root-broker/internal/integrations/grok"
 )
 
 var (

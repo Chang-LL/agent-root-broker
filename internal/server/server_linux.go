@@ -17,13 +17,13 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/Chang-LL/rootbroker/internal/agent"
-	"github.com/Chang-LL/rootbroker/internal/broker"
-	"github.com/Chang-LL/rootbroker/internal/config"
-	"github.com/Chang-LL/rootbroker/internal/executor"
-	"github.com/Chang-LL/rootbroker/internal/homeaccess"
-	"github.com/Chang-LL/rootbroker/internal/proc"
-	"github.com/Chang-LL/rootbroker/internal/transport"
+	"github.com/Chang-LL/agent-root-broker/internal/agent"
+	"github.com/Chang-LL/agent-root-broker/internal/broker"
+	"github.com/Chang-LL/agent-root-broker/internal/config"
+	"github.com/Chang-LL/agent-root-broker/internal/executor"
+	"github.com/Chang-LL/agent-root-broker/internal/homeaccess"
+	"github.com/Chang-LL/agent-root-broker/internal/proc"
+	"github.com/Chang-LL/agent-root-broker/internal/transport"
 )
 
 const maxRequestBytes = 256 * 1024

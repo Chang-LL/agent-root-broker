@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Chang-LL/rootbroker/internal/proc"
+	"github.com/Chang-LL/agent-root-broker/internal/proc"
 )
 
 func TestManualProviderMessageReviewResolvesSameTurn(t *testing.T) {
