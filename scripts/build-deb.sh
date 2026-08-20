@@ -42,7 +42,7 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf -- "$TMP_DIR"' EXIT HUP INT TERM
 PACKAGE_ROOT="$TMP_DIR/package"
 INSTALLER_ROOT="$PACKAGE_ROOT/usr/share/rootbroker/installer"
-DOC_ROOT="$PACKAGE_ROOT/usr/share/doc/rootbroker"
+DOC_ROOT="$PACKAGE_ROOT/usr/share/doc/agent-root-broker"
 mkdir -p "$OUTPUT_DIR" "$PACKAGE_ROOT/DEBIAN" \
   "$PACKAGE_ROOT/usr/bin" "$PACKAGE_ROOT/usr/sbin" \
   "$PACKAGE_ROOT/usr/libexec/rootbroker" "$INSTALLER_ROOT/packaging/config" \
@@ -65,6 +65,7 @@ for document in README.md README.zh-CN.md SECURITY.md COMPATIBILITY.md MIGRATION
   install -m 0644 "$PROJECT_DIR/$document" "$DOC_ROOT/$document"
 done
 
+install -m 0755 "$PROJECT_DIR/packaging/debian/preinst" "$PACKAGE_ROOT/DEBIAN/preinst"
 install -m 0755 "$PROJECT_DIR/packaging/debian/postinst" "$PACKAGE_ROOT/DEBIAN/postinst"
 install -m 0755 "$PROJECT_DIR/packaging/debian/prerm" "$PACKAGE_ROOT/DEBIAN/prerm"
 INSTALLED_SIZE=$(du -sk "$PACKAGE_ROOT/usr" | /usr/bin/awk '{print $1}')
@@ -82,6 +83,6 @@ if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
   find "$PACKAGE_ROOT" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 fi
 
-OUTPUT="$OUTPUT_DIR/rootbroker_${FILE_VERSION}_${ARCH}.deb"
+OUTPUT="$OUTPUT_DIR/agent-root-broker_${FILE_VERSION}_${ARCH}.deb"
 dpkg-deb --root-owner-group -Zxz -z9 --build "$PACKAGE_ROOT" "$OUTPUT"
 echo "$OUTPUT"

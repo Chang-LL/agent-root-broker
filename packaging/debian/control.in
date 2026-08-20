@@ -1,4 +1,4 @@
-Package: rootbroker
+Package: agent-root-broker
 Version: @DEB_VERSION@
 Section: admin
 Priority: optional
@@ -6,6 +6,8 @@ Architecture: @ARCH@
 Maintainer: Agent Root Broker Maintainers <31204393+Chang-LL@users.noreply.github.com>
 Installed-Size: @INSTALLED_SIZE@
 Depends: sudo, systemd
+Conflicts: rootbroker
+Replaces: rootbroker
 Homepage: https://github.com/Chang-LL/agent-root-broker
 Description: human-approved sudo/root broker for local AI agents
  Agent Root Broker lets an isolated local AI agent request exact root commands through

@@ -9,6 +9,11 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 - Renamed the canonical Homebrew formula to `agent-root-broker` to match the public project name;
   the tap retains `rootbroker` as migration metadata and the installed CLI remains `rootbroker`.
+- Renamed the canonical Debian package to `agent-root-broker` while keeping runtime commands and
+  services under `rootbroker`; configured legacy packages fail closed with explicit migration
+  instructions instead of being silently replaced.
+- Added regression coverage that Debian prerelease metadata uses `~` ordering, so a future stable
+  release correctly supersedes alpha packages.
 
 ## [0.1.0-alpha.3] - 2026-08-20
 

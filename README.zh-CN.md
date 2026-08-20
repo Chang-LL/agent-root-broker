@@ -105,7 +105,7 @@ GitHub Release 同时提供可由 apt 安装的 `.deb`。安装软件包时不�
 服务；之后仍需显式配置：
 
 ```sh
-sudo apt install ./rootbroker_VERSION_ARCH.deb
+sudo apt install ./agent-root-broker_VERSION_ARCH.deb
 sudo rootbroker-setup \
   --profile grok \
   --approver-user "$USER" \
@@ -129,6 +129,10 @@ sudo "$(brew --prefix)/bin/rootbroker-setup" \
 
 两种包管理方式都会安装可审阅的 setup 资产，并要求与压缩包相同的显式人工配置。软件包升级
 不会静默重启 root daemon；审阅升级后请重新运行 `rootbroker-setup`。
+
+Debian package 名为 `agent-root-broker`，安装后的运行时命令和服务仍叫 `rootbroker`。已经安装
+早期 `rootbroker` Debian package 的主机，需要先运行 `rootbroker-uninstall` 并移除旧 carrier
+package，再安装新名称的软件包。默认会保留 agent 账户及其 home。
 
 为了兼容升级，原来的 `--grok-bin PATH` 仍作为
 `--profile grok --agent-bin PATH` 的别名保留。
