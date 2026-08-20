@@ -73,6 +73,8 @@
 - [x] 增加简洁的贡献、支持、兼容性、升级、故障排查和卸载文档。
 - [x] 发布可由 apt 安装的 Debian 包和 Linuxbrew tap formula；测试软件包安装本身不产生 root
   权限，并确保已配置状态下的移除能够安全失败。
+- [ ] 使用短期 GitHub OIDC 凭据，把已生成 provenance 的 Debian artifacts 发布到带签名的
+  Cloudsmith APT 仓库；在干净的 Debian 与 Ubuntu 主机完成安装和升级验证后再标记完成。
 
 ### 公开 Alpha 退出条件
 

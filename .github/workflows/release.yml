@@ -92,8 +92,7 @@ jobs:
             release/*.deb
             release/agent-root-broker.rb
             release/checksums.txt
-      - name: Upload dry-run release
-        if: github.ref_type != 'tag'
+      - name: Upload release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rootbroker-release-${{ env.VERSION }}
@@ -114,3 +113,66 @@ jobs:
                 --generate-notes --verify-tag
               ;;
           esac
+
+  publish-cloudsmith:
+    if: github.ref_type == 'tag'
+    needs: release
+    runs-on: ubuntu-24.04
+    environment: cloudsmith-publish
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUDSMITH_NAMESPACE: ${{ vars.CLOUDSMITH_NAMESPACE }}
+      CLOUDSMITH_REPOSITORY: ${{ vars.CLOUDSMITH_REPOSITORY }}
+    steps:
+      - name: Validate Cloudsmith release configuration
+        env:
+          CLOUDSMITH_SERVICE_SLUG: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+        run: |
+          set -eu
+          for variable in CLOUDSMITH_NAMESPACE CLOUDSMITH_REPOSITORY CLOUDSMITH_SERVICE_SLUG; do
+            test -n "$(printenv "$variable")" || {
+              echo "GitHub environment cloudsmith-publish is missing $variable" >&2
+              exit 1
+            }
+          done
+          case "$GITHUB_REF_NAME" in
+            *-*) component=alpha ;;
+            *) component=main ;;
+          esac
+          echo "CLOUDSMITH_COMPONENT=$component" >> "$GITHUB_ENV"
+      - name: Download attested release bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: rootbroker-release-${{ github.ref_name }}
+          path: release
+      - name: Verify Debian carrier packages
+        run: |
+          set -eu
+          packages=(release/*.deb)
+          test "${#packages[@]}" -eq 2 || {
+            echo "expected two Debian packages, found ${#packages[@]}" >&2
+            exit 1
+          }
+          for package in "${packages[@]}"; do
+            test "$(dpkg-deb --field "$package" Package)" = agent-root-broker || {
+              echo "unexpected Debian package identity: $package" >&2
+              exit 1
+            }
+          done
+      - name: Set up Cloudsmith CLI with GitHub OIDC
+        uses: cloudsmith-io/cloudsmith-cli-action@ad73fafb92e3e29a5166c529464c2df7658a608e # v3.1.0
+        with:
+          cli-version: "1.24.0"
+          oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+          oidc-service-slug: ${{ vars.CLOUDSMITH_SERVICE_SLUG }}
+          oidc-audience: https://github.com/Chang-LL
+          verify-auth: "true"
+      - name: Publish signed APT packages
+        run: |
+          set -eu
+          target="${CLOUDSMITH_NAMESPACE}/${CLOUDSMITH_REPOSITORY}/any-distro/any-version"
+          for package in release/*.deb; do
+            cloudsmith push deb "$target" "$package" --component "$CLOUDSMITH_COMPONENT"
+          done

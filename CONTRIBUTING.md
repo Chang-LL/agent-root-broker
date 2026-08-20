@@ -47,3 +47,6 @@ such as `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, and `ci:`.
 
 Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md), not in an issue or
 pull request.
+
+Maintainers preparing a public version must follow [RELEASING.md](RELEASING.md). Release artifacts
+and package-registry uploads are produced by the tagged workflow, not by a workstation.
