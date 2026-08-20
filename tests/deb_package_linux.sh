@@ -6,7 +6,6 @@ set -eu
 
 PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 TEST_DIR=$(mktemp -d /tmp/rootbroker-deb-test.XXXXXX)
-PACKAGE_INSTALLED=0
 ROOTBROKER_CONFIGURED=0
 APPROVER_USER=rootbroker-pkg-approver
 APPROVER_CREATED=0
@@ -14,9 +13,8 @@ cleanup() {
   if [ "$ROOTBROKER_CONFIGURED" -eq 1 ] && [ -x /usr/local/sbin/rootbroker-uninstall ]; then
     /usr/local/sbin/rootbroker-uninstall --purge-agent-account >/dev/null 2>&1 || true
   fi
-  if [ "$PACKAGE_INSTALLED" -eq 1 ]; then
-    dpkg --purge rootbroker >/dev/null 2>&1 || true
-  fi
+  dpkg --purge agent-root-broker >/dev/null 2>&1 || true
+  dpkg --purge rootbroker >/dev/null 2>&1 || true
   if [ "$APPROVER_CREATED" -eq 1 ]; then
     userdel -r "$APPROVER_USER" >/dev/null 2>&1 || true
   fi
@@ -41,15 +39,37 @@ SOURCE_DATE_EPOCH=1700000000 "$PROJECT_DIR/scripts/build-deb.sh" \
   v0.1.0-alpha.1 amd64 "$BINARY" "$TEST_DIR/first"
 SOURCE_DATE_EPOCH=1700000000 "$PROJECT_DIR/scripts/build-deb.sh" \
   v0.1.0-alpha.1 amd64 "$BINARY" "$TEST_DIR/second"
-cmp "$TEST_DIR/first/rootbroker_0.1.0-alpha.1_amd64.deb" \
-  "$TEST_DIR/second/rootbroker_0.1.0-alpha.1_amd64.deb"
-PACKAGE="$TEST_DIR/first/rootbroker_0.1.0-alpha.1_amd64.deb"
+cmp "$TEST_DIR/first/agent-root-broker_0.1.0-alpha.1_amd64.deb" \
+  "$TEST_DIR/second/agent-root-broker_0.1.0-alpha.1_amd64.deb"
+PACKAGE="$TEST_DIR/first/agent-root-broker_0.1.0-alpha.1_amd64.deb"
 [ -f "$PACKAGE" ] || { echo "expected package was not built" >&2; exit 1; }
-dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Package: rootbroker'
+dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Package: agent-root-broker'
+dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Version: 0.1.0~alpha.1'
+dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Conflicts: rootbroker'
+dpkg-deb --info "$PACKAGE" | /bin/grep -q 'Replaces: rootbroker'
+dpkg --compare-versions '0.1.0~alpha.1' lt '0.1.0'
 dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/sbin/rootbroker-setup'
 dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/sbin/rootbroker-migrate-private-prealpha'
-dpkg -i "$PACKAGE"
-PACKAGE_INSTALLED=1
+dpkg-deb --contents "$PACKAGE" | /bin/grep -q './usr/share/doc/agent-root-broker/README.md'
+
+LEGACY_ROOT="$TEST_DIR/legacy-root"
+LEGACY_PACKAGE="$TEST_DIR/rootbroker_0.1.0-alpha.1_amd64.deb"
+dpkg-deb --raw-extract "$PACKAGE" "$LEGACY_ROOT"
+[ -x "$LEGACY_ROOT/DEBIAN/preinst" ] || { echo "package preinst is missing or not executable" >&2; exit 1; }
+/bin/sed -i \
+  -e 's/^Package: agent-root-broker$/Package: rootbroker/' \
+  -e '/^Conflicts: rootbroker$/d' \
+  -e '/^Replaces: rootbroker$/d' \
+  "$LEGACY_ROOT/DEBIAN/control"
+dpkg-deb --root-owner-group -Zxz -z9 --build "$LEGACY_ROOT" "$LEGACY_PACKAGE" >/dev/null
+
+dpkg -i "$LEGACY_PACKAGE"
+apt-get install -y "$PACKAGE" >"$TEST_DIR/unconfigured-migration.log"
+[ "$(dpkg-query -W -f='${db:Status-Status}' agent-root-broker)" = installed ]
+! dpkg-query -W -f='${db:Status-Status}' rootbroker 2>/dev/null | /bin/grep -qx installed
+dpkg --purge agent-root-broker
+
+dpkg -i "$LEGACY_PACKAGE"
 [ "$(/usr/bin/rootbroker version)" = 'rootbroker v0.1.0-alpha.1' ]
 /usr/sbin/rootbroker-setup --help >/dev/null
 /usr/sbin/rootbroker-migrate-private-prealpha --help >/dev/null
@@ -62,7 +82,32 @@ systemctl is-active --quiet rootbrokerd.service
 [ "$(/usr/local/bin/rootbroker version)" = 'rootbroker v0.1.0-alpha.1' ]
 /usr/bin/rootbroker --json doctor | /bin/grep -q '"socketIsUnix":true'
 
-if dpkg --remove rootbroker >"$TEST_DIR/remove-configured.log" 2>&1; then
+if apt-get install -y "$PACKAGE" >"$TEST_DIR/configured-migration.log" 2>&1; then
+  echo "configured legacy package migration unexpectedly succeeded" >&2
+  exit 1
+fi
+/bin/grep -q 'Run sudo rootbroker-uninstall' "$TEST_DIR/configured-migration.log"
+[ "$(dpkg-query -W -f='${db:Status-Status}' rootbroker)" = installed ]
+
+if dpkg --remove rootbroker >"$TEST_DIR/remove-legacy-configured.log" 2>&1; then
+  echo "configured legacy package removal unexpectedly succeeded" >&2
+  exit 1
+fi
+/bin/grep -q 'Run sudo rootbroker-uninstall' "$TEST_DIR/remove-legacy-configured.log"
+/usr/local/sbin/rootbroker-uninstall --purge-agent-account >"$TEST_DIR/uninstall-legacy.log"
+ROOTBROKER_CONFIGURED=0
+[ -d /home/grok-agent ]
+dpkg --purge rootbroker
+
+apt-get install -y "$PACKAGE" >"$TEST_DIR/install-canonical.log"
+/usr/sbin/rootbroker-setup \
+  --profile grok \
+  --approver-user "$APPROVER_USER" \
+  --agent-bin "$FAKE_GROK" >"$TEST_DIR/setup-canonical.log"
+ROOTBROKER_CONFIGURED=1
+systemctl is-active --quiet rootbrokerd.service
+
+if dpkg --remove agent-root-broker >"$TEST_DIR/remove-configured.log" 2>&1; then
   echo "configured package removal unexpectedly succeeded" >&2
   exit 1
 fi
@@ -70,8 +115,7 @@ fi
 /usr/local/sbin/rootbroker-uninstall --purge-agent-account >"$TEST_DIR/uninstall.log"
 ROOTBROKER_CONFIGURED=0
 [ -d /home/grok-agent ]
-dpkg --purge rootbroker
-PACKAGE_INSTALLED=0
+dpkg --purge agent-root-broker
 [ ! -e /usr/bin/rootbroker ]
 userdel -r "$APPROVER_USER"
 APPROVER_CREATED=0

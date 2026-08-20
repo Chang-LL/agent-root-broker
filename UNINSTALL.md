@@ -33,9 +33,11 @@ the carrier package:
 
 ```sh
 sudo rootbroker-uninstall
-sudo apt remove rootbroker
-# or: brew uninstall rootbroker
+sudo apt remove agent-root-broker
+# or: brew uninstall agent-root-broker
 ```
 
 The Debian package refuses removal while `/var/lib/rootbroker/install-state` shows an active
 configuration. This prevents package removal from silently leaving an unmanaged root daemon.
+The Debian carrier was named `rootbroker` through v0.1.0-alpha.3; use that old package name in the
+second command when migrating an installation from those releases.

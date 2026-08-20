@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+case "${1:-}" in
+  install|upgrade)
+    if [ "$(/usr/bin/dpkg-query -W -f='${db:Status-Status}' rootbroker 2>/dev/null || true)" = installed ] &&
+       [ -f /var/lib/rootbroker/install-state ]; then
+      echo "The legacy rootbroker Debian package is still installed and the host is configured." >&2
+      echo "Run sudo rootbroker-uninstall, then sudo apt remove rootbroker, and retry the installation." >&2
+      echo "The agent account and its home are preserved by default." >&2
+      exit 1
+    fi
+    ;;
+esac
+
+exit 0

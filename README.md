@@ -115,7 +115,7 @@ The GitHub release also includes an apt-compatible `.deb`. Package installation 
 not create accounts or start a root service; configure it explicitly afterward:
 
 ```sh
-sudo apt install ./rootbroker_VERSION_ARCH.deb
+sudo apt install ./agent-root-broker_VERSION_ARCH.deb
 sudo rootbroker-setup \
   --profile grok \
   --approver-user "$USER" \
@@ -140,6 +140,11 @@ Homebrew migration alias; the installed commands continue to be named `rootbroke
 Both package-manager paths install inspectable setup assets and require the same explicit human
 configuration as the release archive. Package upgrades do not silently restart the root daemon;
 rerun `rootbroker-setup` after reviewing an upgrade.
+
+The Debian package is named `agent-root-broker`; the installed runtime commands and services remain
+named `rootbroker`. Hosts with the earlier `rootbroker` Debian package must run
+`rootbroker-uninstall` and remove that carrier package before installing the renamed package. The
+agent account and its home are preserved by default.
 
 For upgrades, the previous `--grok-bin PATH` form remains a compatibility alias for
 `--profile grok --agent-bin PATH`.

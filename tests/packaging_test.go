@@ -221,11 +221,28 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 		t.Fatal("release workflow does not mark prerelease tags")
 	}
 	debBuilder := projectFile(t, "scripts", "build-deb.sh")
-	if !strings.Contains(debBuilder, `rootbroker_${FILE_VERSION}_${ARCH}.deb`) {
+	if !strings.Contains(debBuilder, `agent-root-broker_${FILE_VERSION}_${ARCH}.deb`) {
 		t.Fatal("Debian release filename may be rewritten by GitHub")
+	}
+	for _, wanted := range []string{`DEB_VERSION="${DEB_BASE}~${DEB_PRERELEASE}"`, "packaging/debian/preinst"} {
+		if !strings.Contains(debBuilder, wanted) {
+			t.Fatalf("Debian builder is missing package/version migration behavior %q", wanted)
+		}
 	}
 	if !strings.Contains(debBuilder, "rootbroker-migrate-private-prealpha") {
 		t.Fatal("Debian package omits the private pre-alpha migration command")
+	}
+	debControl := projectFile(t, "packaging", "debian", "control.in")
+	for _, wanted := range []string{"Package: agent-root-broker", "Conflicts: rootbroker", "Replaces: rootbroker"} {
+		if !strings.Contains(debControl, wanted) {
+			t.Fatalf("Debian control is missing %q", wanted)
+		}
+	}
+	debPreinstall := projectFile(t, "packaging", "debian", "preinst")
+	for _, wanted := range []string{"dpkg-query", "rootbroker-uninstall", "apt remove rootbroker"} {
+		if !strings.Contains(debPreinstall, wanted) {
+			t.Fatalf("Debian preinstall migration guard is missing %q", wanted)
+		}
 	}
 	formula := projectFile(t, "packaging", "homebrew", "agent-root-broker.rb.in")
 	if !strings.Contains(formula, "class AgentRootBroker < Formula") {
@@ -242,6 +259,12 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 		}
 		if strings.Contains(document, "brew install Chang-LL/tap/rootbroker") {
 			t.Fatalf("%s still recommends the old Homebrew formula name", name)
+		}
+		if !strings.Contains(document, "apt install ./agent-root-broker_VERSION_ARCH.deb") {
+			t.Fatalf("%s is missing the canonical Debian package name", name)
+		}
+		if strings.Contains(document, "apt install ./rootbroker_VERSION_ARCH.deb") {
+			t.Fatalf("%s still recommends the old Debian package filename", name)
 		}
 	}
 	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
