@@ -203,6 +203,7 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	roadmapEnglish := projectFile(t, "ROADMAP.md")
 	roadmapChinese := projectFile(t, "ROADMAP.zh-CN.md")
 	release := projectFile(t, ".github", "workflows", "release.yml")
+	releasing := projectFile(t, "RELEASING.md")
 	if !strings.Contains(release, "cp -R profiles") {
 		t.Fatal("release archive omits integration profiles")
 	}
@@ -219,6 +220,25 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	}
 	if !strings.Contains(release, "--prerelease") {
 		t.Fatal("release workflow does not mark prerelease tags")
+	}
+	for _, wanted := range []string{
+		"environment: cloudsmith-publish",
+		"cloudsmith-io/cloudsmith-cli-action@ad73fafb92e3e29a5166c529464c2df7658a608e",
+		`cli-version: "1.24.0"`,
+		"actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+		`cloudsmith push deb "$target" "$package" --component "$CLOUDSMITH_COMPONENT"`,
+	} {
+		if !strings.Contains(release, wanted) {
+			t.Fatalf("release workflow is missing Cloudsmith behavior %q", wanted)
+		}
+	}
+	if strings.Contains(release, "CLOUDSMITH_API_KEY") {
+		t.Fatal("release workflow must not store a long-lived Cloudsmith API key")
+	}
+	for _, wanted := range []string{"`repository`: `Chang-LL/agent-root-broker`", "`ref`: `refs/tags/v.*`", "CLOUDSMITH_SERVICE_SLUG"} {
+		if !strings.Contains(releasing, wanted) {
+			t.Fatalf("release documentation is missing Cloudsmith trust guidance %q", wanted)
+		}
 	}
 	debBuilder := projectFile(t, "scripts", "build-deb.sh")
 	if !strings.Contains(debBuilder, `agent-root-broker_${FILE_VERSION}_${ARCH}.deb`) {

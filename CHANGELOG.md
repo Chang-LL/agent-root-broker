@@ -14,6 +14,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
   instructions instead of being silently replaced.
 - Added regression coverage that Debian prerelease metadata uses `~` ordering, so a future stable
   release correctly supersedes alpha packages.
+- Added a least-privilege Cloudsmith publishing stage that reuses the attested release bundle,
+  authenticates through GitHub OIDC, and separates prerelease and stable APT components.
 
 ## [0.1.0-alpha.3] - 2026-08-20
 

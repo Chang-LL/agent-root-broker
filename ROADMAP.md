@@ -90,6 +90,9 @@ version is `v0.1.0-alpha.1`.
   documentation.
 - [x] Publish apt-installable Debian packages and a Linuxbrew tap formula; test that package
   installation itself creates no root authority and that configured removal fails safely.
+- [ ] Publish the attested Debian artifacts through a signed Cloudsmith APT repository using
+  short-lived GitHub OIDC credentials; verify install and upgrade from clean Debian and Ubuntu
+  hosts before marking this complete.
 
 ### Public alpha exit criteria
 
