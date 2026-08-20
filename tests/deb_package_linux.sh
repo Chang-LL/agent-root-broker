@@ -80,8 +80,9 @@ CHECKSUM=$(sha256sum "$BINARY" | /usr/bin/awk '{print $1}')
 "$PROJECT_DIR/scripts/render-homebrew-formula.sh" v0.1.0-alpha.1 \
   https://example.invalid/rootbroker-amd64.tar.gz "$CHECKSUM" \
   https://example.invalid/rootbroker-arm64.tar.gz "$CHECKSUM" \
-  "$TEST_DIR/rootbroker.rb"
-ruby -c "$TEST_DIR/rootbroker.rb" >/dev/null
-/bin/grep -q 'depends_on :linux' "$TEST_DIR/rootbroker.rb"
+  "$TEST_DIR/agent-root-broker.rb"
+ruby -c "$TEST_DIR/agent-root-broker.rb" >/dev/null
+/bin/grep -q 'class AgentRootBroker < Formula' "$TEST_DIR/agent-root-broker.rb"
+/bin/grep -q 'depends_on :linux' "$TEST_DIR/agent-root-broker.rb"
 
 echo "PASS: Debian carrier package build, install, entry points, and removal"

@@ -115,12 +115,17 @@ sudo rootbroker-setup \
 Linuxbrew tap 使用同样的两阶段方式：
 
 ```sh
-brew install Chang-LL/tap/rootbroker
+brew tap Chang-LL/tap
+brew install agent-root-broker
 sudo "$(brew --prefix)/bin/rootbroker-setup" \
   --profile grok \
   --approver-user "$USER" \
   --agent-bin /absolute/path/to/grok
 ```
+
+尚未添加 tap 的主机也可以用一条命令安装：
+`brew install Chang-LL/tap/agent-root-broker`。原来的 `rootbroker` formula 名会保留为 Homebrew
+迁移别名；安装后的命令仍然叫 `rootbroker`。
 
 两种包管理方式都会安装可审阅的 setup 资产，并要求与压缩包相同的显式人工配置。软件包升级
 不会静默重启 root daemon；审阅升级后请重新运行 `rootbroker-setup`。

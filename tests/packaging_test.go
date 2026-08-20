@@ -212,7 +212,7 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(release, "migrate-private-prealpha.sh") {
 		t.Fatal("release archive omits private pre-alpha migration tool")
 	}
-	for _, wanted := range []string{"scripts/build-deb.sh", "scripts/render-homebrew-formula.sh", "release/*.deb", "release/rootbroker.rb"} {
+	for _, wanted := range []string{"scripts/build-deb.sh", "scripts/render-homebrew-formula.sh", "release/*.deb", "release/agent-root-broker.rb"} {
 		if !strings.Contains(release, wanted) {
 			t.Fatalf("release workflow is missing package artifact behavior %q", wanted)
 		}
@@ -227,9 +227,22 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(debBuilder, "rootbroker-migrate-private-prealpha") {
 		t.Fatal("Debian package omits the private pre-alpha migration command")
 	}
-	formula := projectFile(t, "packaging", "homebrew", "rootbroker.rb.in")
+	formula := projectFile(t, "packaging", "homebrew", "agent-root-broker.rb.in")
+	if !strings.Contains(formula, "class AgentRootBroker < Formula") {
+		t.Fatal("Homebrew formula does not use the public project name")
+	}
 	if !strings.Contains(formula, "rootbroker-migrate-private-prealpha") {
 		t.Fatal("Homebrew formula omits the private pre-alpha migration command")
+	}
+	for name, document := range map[string]string{"README.md": readmeEnglish, "README.zh-CN.md": readmeChinese} {
+		for _, wanted := range []string{"brew install agent-root-broker", "brew install Chang-LL/tap/agent-root-broker"} {
+			if !strings.Contains(document, wanted) {
+				t.Fatalf("%s is missing canonical Homebrew command %q", name, wanted)
+			}
+		}
+		if strings.Contains(document, "brew install Chang-LL/tap/rootbroker") {
+			t.Fatalf("%s still recommends the old Homebrew formula name", name)
+		}
 	}
 	if !strings.Contains(release, `release_root="$RUNNER_TEMP/rootbroker-release"`) ||
 		!strings.Contains(release, `git status --porcelain`) {

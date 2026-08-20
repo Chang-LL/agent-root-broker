@@ -5,6 +5,11 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Changed
+
+- Renamed the canonical Homebrew formula to `agent-root-broker` to match the public project name;
+  the tap retains `rootbroker` as migration metadata and the installed CLI remains `rootbroker`.
+
 ## [0.1.0-alpha.3] - 2026-08-20
 
 ### Changed
