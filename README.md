@@ -125,12 +125,17 @@ sudo rootbroker-setup \
 On Linuxbrew, the project tap uses the same two-stage model:
 
 ```sh
-brew install Chang-LL/tap/rootbroker
+brew tap Chang-LL/tap
+brew install agent-root-broker
 sudo "$(brew --prefix)/bin/rootbroker-setup" \
   --profile grok \
   --approver-user "$USER" \
   --agent-bin /absolute/path/to/grok
 ```
+
+For a one-line install on a host that has not added the tap, use
+`brew install Chang-LL/tap/agent-root-broker`. The earlier `rootbroker` formula name remains a
+Homebrew migration alias; the installed commands continue to be named `rootbroker`.
 
 Both package-manager paths install inspectable setup assets and require the same explicit human
 configuration as the release archive. Package upgrades do not silently restart the root daemon;

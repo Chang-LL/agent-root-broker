@@ -41,4 +41,4 @@ esac
     gsub(/@ARM64_SHA256@/, arm64_sha)
     print
   }
-' "$PROJECT_DIR/packaging/homebrew/rootbroker.rb.in" >"$OUTPUT"
+' "$PROJECT_DIR/packaging/homebrew/agent-root-broker.rb.in" >"$OUTPUT"
