@@ -5,7 +5,7 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
-## [0.1.0-alpha.3] - 2026-08-18
+## [0.1.0-alpha.3] - 2026-08-20
 
 ### Changed
 
