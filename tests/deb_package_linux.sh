@@ -66,7 +66,10 @@ dpkg-deb --root-owner-group -Zxz -z9 --build "$LEGACY_ROOT" "$LEGACY_PACKAGE" >/
 dpkg -i "$LEGACY_PACKAGE"
 apt-get install -y "$PACKAGE" >"$TEST_DIR/unconfigured-migration.log"
 [ "$(dpkg-query -W -f='${db:Status-Status}' agent-root-broker)" = installed ]
-! dpkg-query -W -f='${db:Status-Status}' rootbroker 2>/dev/null | /bin/grep -qx installed
+if dpkg-query -W -f='${db:Status-Status}' rootbroker 2>/dev/null | /bin/grep -qx installed; then
+  echo "legacy package is still installed after replacement" >&2
+  exit 1
+fi
 dpkg --purge agent-root-broker
 
 dpkg -i "$LEGACY_PACKAGE"
