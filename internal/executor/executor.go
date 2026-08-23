@@ -28,6 +28,10 @@ var interpreters = map[string]bool{
 	"python": true, "python3": true, "ruby": true, "sh": true, "zsh": true,
 }
 
+var systemServiceManagers = map[string]bool{
+	"systemctl": true, "systemd-run": true,
+}
+
 type Command struct {
 	Argv           []string `json:"argv"`
 	CWD            string   `json:"cwd"`
@@ -138,9 +142,12 @@ func Prepare(argv []string, cwd string, timeoutSeconds *int, cfg config.Config) 
 	}
 
 	resolvedArgv := append([]string{executable}, argv[1:]...)
-	risks := make([]string, 0, 3)
+	risks := make([]string, 0, 4)
 	if interpreters[base] {
 		risks = append(risks, "interpreter-or-shell")
+	}
+	if systemServiceManagers[base] {
+		risks = append(risks, "system-service-management")
 	}
 	for _, arg := range argv[1:] {
 		if arg == "-c" || arg == "--command" || arg == "-m" {
