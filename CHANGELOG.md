@@ -5,6 +5,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.6] - 2026-08-23
+
 ### Fixed
 
 - Explain invalid or empty interactive approval choices instead of silently repeating the prompt.
@@ -85,7 +87,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 - Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
   explicit threat model.
 
-[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.5...HEAD
+[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.6...HEAD
+[0.1.0-alpha.6]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [0.1.0-alpha.5]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
