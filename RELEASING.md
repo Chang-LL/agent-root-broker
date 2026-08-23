@@ -37,10 +37,16 @@ The release workflow grants `id-token: write` only to the Cloudsmith publishing 
 Cloudsmith action exchanges the GitHub identity for a short-lived credential; no long-lived
 Cloudsmith credential is stored in GitHub.
 
+Cloudsmith tracks Open Source repository quota separately from the workspace plan, but its public
+Open Source policy does not promise that service accounts and OIDC remain enabled after a premium
+trial. Confirm the current entitlement before the trial expires and after any plan change. The
+release must fail closed if OIDC exchange is unavailable; do not silently replace it with a
+maintainer's long-lived API token.
+
 ## Rehearse and publish
 
 Before tagging, run the Release workflow manually with a unique dry-run version such as
-`v0.1.0-alpha.4-dry-run`. Download its `rootbroker-release-*` artifact and inspect the checksums,
+`v0.1.0-alpha.5-dry-run`. Download its `rootbroker-release-*` artifact and inspect the checksums,
 package names, versions, maintainer scripts, and archive contents. A dry run never publishes to
 GitHub Releases or Cloudsmith.
 
@@ -50,10 +56,13 @@ After the release PR and dry run pass:
 2. Confirm every reused CI job passes in the tag workflow.
 3. Confirm the GitHub Release contains both architectures, both Debian packages, the Homebrew
    formula, checksums, SBOMs inside the archives, and build-provenance attestations.
+   Run `brew style agent-root-broker.rb` against the downloaded formula.
 4. Confirm Cloudsmith receives both Debian packages. Prerelease tags publish to the `alpha`
    component; stable tags publish to `main`.
 5. Test repository setup, `apt install agent-root-broker`, explicit `rootbroker-setup`, an upgrade,
    `rootbroker-uninstall`, and package removal on clean supported hosts.
+6. Open a pull request that replaces `Formula/agent-root-broker.rb` in `Chang-LL/homebrew-tap` with
+   the exact release asset; require the tap's Linuxbrew install and formula tests before merging.
 
 Never replace an already published package version. If publishing fails before Cloudsmith receives
 the package, fix the configuration and rerun only the failed job. If any artifact itself is wrong,
