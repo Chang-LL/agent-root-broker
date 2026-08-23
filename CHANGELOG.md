@@ -5,6 +5,11 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Fixed
+
+- Explain invalid or empty interactive approval choices instead of silently repeating the prompt.
+- Flag `systemctl` and `systemd-run` requests as system service management during human review.
+
 ## [0.1.0-alpha.5] - 2026-08-23
 
 ### Fixed

@@ -2,6 +2,7 @@ package executor
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -47,6 +48,25 @@ func TestPrepareRejectsWrappersAndFlagsRisk(t *testing.T) {
 	second, _ := Prepare([]string{"sh", "-c", "id"}, cwd, intPointer(5), cfg)
 	if command.Hash != second.Hash {
 		t.Fatal("command hash is not stable")
+	}
+}
+
+func TestPrepareFlagsSystemServiceManagement(t *testing.T) {
+	cfg := testConfig()
+	cfg.CleanPath = t.TempDir()
+	cwd, _ := os.Getwd()
+	for _, executable := range []string{"systemctl", "systemd-run"} {
+		path := filepath.Join(cfg.CleanPath, executable)
+		if err := os.WriteFile(path, []byte("test fixture\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		command, err := Prepare([]string{executable, "test"}, cwd, intPointer(5), cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(command.Risks, ","), "system-service-management") {
+			t.Fatalf("%s risks = %v, want system service warning", executable, command.Risks)
+		}
 	}
 }
 

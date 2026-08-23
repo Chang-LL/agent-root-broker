@@ -3,6 +3,7 @@ package commands
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -206,6 +207,29 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
+const approvalPrompt = "Approve [c]ommand, [m]essage, [s]ession; [d]eny; [l]ater; [q]uit? "
+
+func readApprovalChoice(reader *bufio.Reader, output io.Writer) (string, error) {
+	for {
+		if _, err := fmt.Fprint(output, approvalPrompt); err != nil {
+			return "", fmt.Errorf("write approval prompt: %w", err)
+		}
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+		choice := strings.ToLower(strings.TrimSpace(line))
+		switch choice {
+		case "c", "m", "s", "d", "l", "q":
+			return choice, nil
+		default:
+			if _, err := fmt.Fprintln(output, "Invalid choice. Enter c, m, s, d, l, or q."); err != nil {
+				return "", fmt.Errorf("write invalid-choice message: %w", err)
+			}
+		}
+	}
+}
+
 func watch(socketPath string, interval time.Duration) int {
 	fmt.Fprintln(os.Stdout, "Waiting for rootbroker requests. Ctrl+C quits.")
 	reader := bufio.NewReader(os.Stdin)
@@ -229,12 +253,10 @@ func watch(socketPath string, interval time.Duration) int {
 		}
 		fmt.Fprintln(os.Stdout, "\n"+formatPending(*current))
 		for {
-			fmt.Fprint(os.Stdout, "Approve [c]ommand, [m]essage, [s]ession; [d]eny; [l]ater; [q]uit? ")
-			line, err := reader.ReadString('\n')
+			choice, err := readApprovalChoice(reader, os.Stdout)
 			if err != nil {
 				return 1
 			}
-			choice := strings.ToLower(strings.TrimSpace(line))
 			scope := map[string]string{"c": "command", "m": "message", "s": "session"}[choice]
 			if scope != "" {
 				if code := adminMutation(socketPath, false, map[string]any{"op": "decide", "requestId": current.ID, "decision": "approved", "scope": scope}); code != 0 {
