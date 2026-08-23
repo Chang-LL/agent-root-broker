@@ -268,6 +268,16 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	if !strings.Contains(formula, "class AgentRootBroker < Formula") {
 		t.Fatal("Homebrew formula does not use the public project name")
 	}
+	for _, wanted := range []string{"on_linux do", "if Hardware::CPU.arm?"} {
+		if !strings.Contains(formula, wanted) {
+			t.Fatalf("Homebrew formula is missing current architecture selection %q", wanted)
+		}
+	}
+	for _, forbidden := range []string{"on_intel do", "on_arm do"} {
+		if strings.Contains(formula, forbidden) {
+			t.Fatalf("Homebrew formula uses a block that cannot contain URL stanzas: %q", forbidden)
+		}
+	}
 	if !strings.Contains(formula, "rootbroker-migrate-private-prealpha") {
 		t.Fatal("Homebrew formula omits the private pre-alpha migration command")
 	}
@@ -334,7 +344,9 @@ func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
 		"debian:12",
 		"ubuntu:24.04",
 		"https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh",
-		`test "$(rootbroker version | awk '{print $2}')" = "$expected_version"`,
+		"previous_package_version",
+		"--only-upgrade agent-root-broker",
+		`test "$installed_version" = "$expected_version"`,
 		`dpkg-query -W -f='${Package}' agent-root-broker`,
 	} {
 		if !strings.Contains(release, wanted) {

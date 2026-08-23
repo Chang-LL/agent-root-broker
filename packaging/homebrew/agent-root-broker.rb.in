@@ -6,14 +6,14 @@ class AgentRootBroker < Formula
 
   depends_on :linux
 
-  on_intel do
-    url "@AMD64_URL@"
-    sha256 "@AMD64_SHA256@"
-  end
-
-  on_arm do
-    url "@ARM64_URL@"
-    sha256 "@ARM64_SHA256@"
+  on_linux do
+    if Hardware::CPU.arm?
+      url "@ARM64_URL@"
+      sha256 "@ARM64_SHA256@"
+    else
+      url "@AMD64_URL@"
+      sha256 "@AMD64_SHA256@"
+    end
   end
 
   def install

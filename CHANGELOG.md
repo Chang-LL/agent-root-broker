@@ -5,6 +5,18 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.5] - 2026-08-23
+
+### Fixed
+
+- Updated generated Homebrew formula architecture selection to satisfy current `brew style`
+  component-order rules while retaining separate Linux amd64 and arm64 archives.
+
+### Changed
+
+- Extended public Cloudsmith smoke tests to install the preceding indexed package before upgrading
+  through APT on Debian 12 and Ubuntu 24.04 whenever an older release is available.
+
 ## [0.1.0-alpha.4] - 2026-08-23
 
 ### Added
@@ -68,7 +80,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 - Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
   explicit threat model.
 
-[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.4...HEAD
+[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.5...HEAD
+[0.1.0-alpha.5]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
