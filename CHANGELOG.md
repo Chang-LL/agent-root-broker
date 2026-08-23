@@ -5,6 +5,15 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+## [0.1.0-alpha.4] - 2026-08-23
+
+### Added
+
+- Added bilingual, review-before-root APT installation instructions for the signed public
+  Cloudsmith repository and the required open-source hosting attribution.
+- Added post-publication smoke tests that install the tagged package from Cloudsmith on clean
+  Debian 12 and Ubuntu 24.04 containers.
+
 ### Changed
 
 - Renamed the canonical Homebrew formula to `agent-root-broker` to match the public project name;
@@ -59,7 +68,8 @@ project intends to use Semantic Versioning after the public alpha contract is de
 - Checksums, CycloneDX SBOMs, GitHub build provenance, bilingual usage documentation, and an
   explicit threat model.
 
-[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.3...HEAD
+[Unreleased]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.4...HEAD
+[0.1.0-alpha.4]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/Chang-LL/agent-root-broker/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/Chang-LL/agent-root-broker/releases/tag/v0.1.0-alpha.1
