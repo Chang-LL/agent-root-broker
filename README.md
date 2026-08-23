@@ -5,6 +5,7 @@
 [![CI](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![OSS hosting by Cloudsmith](https://img.shields.io/badge/OSS%20hosting%20by-Cloudsmith-blue?logo=cloudsmith&style=flat-square)](https://cloudsmith.com)
 
 **Agent Root Broker** (`rootbroker`) is a small Linux broker for letting a local AI agent request
 arbitrary root commands without giving the agent `sudo`, Docker, LXD, or another persistent path
@@ -99,6 +100,45 @@ The release binary is statically linked. The target host does not need Go, Pytho
 packages.
 
 ## Install
+
+### APT repository (Debian and Ubuntu)
+
+Alpha packages are published in the `alpha` component of the signed
+[Cloudsmith APT repository](https://broadcasts.cloudsmith.com/lc-software/agent-root-broker).
+Download Cloudsmith's generated repository bootstrap over HTTPS, inspect it locally, and only then
+run it as root:
+
+```sh
+curl -1sLf \
+  https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
+  -o /tmp/agent-root-broker-cloudsmith-setup.sh
+less /tmp/agent-root-broker-cloudsmith-setup.sh
+sudo env component=alpha bash /tmp/agent-root-broker-cloudsmith-setup.sh
+sudo apt-get install agent-root-broker
+```
+
+The bootstrap installs Cloudsmith's repository signing key with APT `signed-by` isolation, writes
+the package source under `/etc/apt/sources.list.d`, and refreshes package metadata. Package
+installation deliberately does not create accounts or start a root service; configure it explicitly:
+
+```sh
+sudo rootbroker-setup \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+Future alpha upgrades use the normal package-manager path:
+
+```sh
+sudo apt-get update
+sudo apt-get install --only-upgrade agent-root-broker
+```
+
+Package repository hosting is graciously provided for this open-source project by
+[Cloudsmith](https://cloudsmith.com).
+
+### Release archive or local Debian package
 
 Download the archive for `linux_amd64` or `linux_arm64` from GitHub Releases, verify it against
 `checksums.txt`, extract it, and review `install.sh` plus `profiles/grok/profile.sh`. Then select the

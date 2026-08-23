@@ -326,6 +326,38 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 	}
 }
 
+func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
+	release := projectFile(t, ".github", "workflows", "release.yml")
+	for _, wanted := range []string{
+		"verify-cloudsmith-apt:",
+		"needs: publish-cloudsmith",
+		"debian:12",
+		"ubuntu:24.04",
+		"https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh",
+		`test "$(rootbroker version | awk '{print $2}')" = "$expected_version"`,
+		`dpkg-query -W -f='${Package}' agent-root-broker`,
+	} {
+		if !strings.Contains(release, wanted) {
+			t.Fatalf("release workflow is missing public APT verification behavior %q", wanted)
+		}
+	}
+
+	for _, filename := range []string{"README.md", "README.zh-CN.md"} {
+		document := projectFile(t, filename)
+		for _, wanted := range []string{
+			"https://broadcasts.cloudsmith.com/lc-software/agent-root-broker",
+			"https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh",
+			"sudo env component=alpha bash",
+			"sudo apt-get install agent-root-broker",
+			"Cloudsmith",
+		} {
+			if !strings.Contains(document, wanted) {
+				t.Fatalf("%s is missing public APT guidance %q", filename, wanted)
+			}
+		}
+	}
+}
+
 func TestVendorPayloadsStayBehindIntegrationAdapters(t *testing.T) {
 	adapter := projectFile(t, "internal", "integrations", "grok", "adapter.go")
 	for _, field := range []string{"hookEventName", "toolName", "toolInput", `raw["reason"]`} {

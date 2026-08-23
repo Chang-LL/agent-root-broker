@@ -5,6 +5,7 @@
 [![CI](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chang-LL/agent-root-broker/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![OSS hosting by Cloudsmith](https://img.shields.io/badge/OSS%20hosting%20by-Cloudsmith-blue?logo=cloudsmith&style=flat-square)](https://cloudsmith.com)
 
 **Agent Root Broker**（命令名为 `rootbroker`）是一个小型 Linux 权限代理，让本地 AI agent
 可以申请执行任意 root 命令，而无需把 `sudo`、Docker、LXD 或其他持久化提权路径直接交给
@@ -89,6 +90,44 @@ allowlist 选择、以 root 执行的 shell 代码。Unix socket 仍是唯一已
 发布二进制为静态链接。目标主机不需要安装 Go、Python 或第三方软件包。
 
 ## 安装
+
+### APT 仓库（Debian 与 Ubuntu）
+
+Alpha 软件包发布在带签名的
+[Cloudsmith APT 仓库](https://broadcasts.cloudsmith.com/lc-software/agent-root-broker)的
+`alpha` component 中。先通过 HTTPS 下载 Cloudsmith 生成的仓库配置脚本，在本地审阅后再以
+root 身份运行：
+
+```sh
+curl -1sLf \
+  https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
+  -o /tmp/agent-root-broker-cloudsmith-setup.sh
+less /tmp/agent-root-broker-cloudsmith-setup.sh
+sudo env component=alpha bash /tmp/agent-root-broker-cloudsmith-setup.sh
+sudo apt-get install agent-root-broker
+```
+
+该脚本通过 APT `signed-by` 隔离方式安装 Cloudsmith 仓库签名 key，在
+`/etc/apt/sources.list.d` 下写入软件源，并刷新软件包元数据。软件包安装本身不会创建账户，
+也不会启动 root 服务；随后仍需显式配置：
+
+```sh
+sudo rootbroker-setup \
+  --profile grok \
+  --approver-user "$USER" \
+  --agent-bin /absolute/path/to/grok
+```
+
+后续 Alpha 版本可通过常规软件包管理流程升级：
+
+```sh
+sudo apt-get update
+sudo apt-get install --only-upgrade agent-root-broker
+```
+
+本开源项目的软件包仓库由 [Cloudsmith](https://cloudsmith.com) 免费提供托管。
+
+### Release 压缩包或本地 Debian 软件包
 
 从 GitHub Releases 下载 `linux_amd64` 或 `linux_arm64` 压缩包，根据 `checksums.txt` 验证，
 解压并审阅 `install.sh` 与 `profiles/grok/profile.sh`。然后选择 Grok profile，并显式传入真实

@@ -176,3 +176,50 @@ jobs:
           for package in release/*.deb; do
             cloudsmith push deb "$target" "$package" --component "$CLOUDSMITH_COMPONENT"
           done
+
+  verify-cloudsmith-apt:
+    if: github.ref_type == 'tag'
+    needs: publish-cloudsmith
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:12
+          - ubuntu:24.04
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    permissions:
+      contents: read
+    steps:
+      - name: Install repository bootstrap prerequisites
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
+      - name: Configure signed Cloudsmith APT repository
+        env:
+          RELEASE_COMPONENT: ${{ contains(github.ref_name, '-') && 'alpha' || 'main' }}
+        run: |
+          set -eu
+          curl -1sLf \
+            https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
+            -o /tmp/agent-root-broker-cloudsmith-setup.sh
+          env component="$RELEASE_COMPONENT" bash /tmp/agent-root-broker-cloudsmith-setup.sh
+      - name: Install the tagged package from APT
+        run: |
+          set -eu
+          expected_version="$GITHUB_REF_NAME"
+          attempts=0
+          until DEBIAN_FRONTEND=noninteractive apt-get install -y agent-root-broker &&
+            test "$(rootbroker version | awk '{print $2}')" = "$expected_version"; do
+            attempts=$((attempts + 1))
+            test "$attempts" -lt 20 || exit 1
+            echo "tagged package not visible yet; retrying ($attempts/20)"
+            sleep 15
+            apt-get update
+          done
+          installed_version="$(rootbroker version | awk '{print $2}')"
+          test "$installed_version" = "$expected_version" || {
+            echo "expected $expected_version, installed $installed_version" >&2
+            exit 1
+          }
+          test "$(dpkg-query -W -f='${Package}' agent-root-broker)" = agent-root-broker
