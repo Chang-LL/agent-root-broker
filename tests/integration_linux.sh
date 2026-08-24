@@ -113,6 +113,9 @@ grep -q 'remaining requests in this session' "$WATCH_OUTPUT"
 grep -q 'Choice: Invalid choice. Enter c, m, s, d, l, or q.' "$WATCH_OUTPUT"
 [ "$(grep -c '^Approve$' "$WATCH_OUTPUT")" -eq 1 ]
 ESCAPE=$(printf '\033')
-! grep -q "$ESCAPE" "$WATCH_OUTPUT"
+if grep -q "$ESCAPE" "$WATCH_OUTPUT"; then
+  echo "watch --color=never emitted ANSI escape sequences"
+  exit 1
+fi
 
 echo "PASS: Go Linux socket integration"
