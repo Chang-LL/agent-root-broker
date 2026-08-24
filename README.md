@@ -290,6 +290,44 @@ The reviewer displays the resolved command, quoted argv, cwd, timeout, risk hint
 and SHA-256 request hash. Choose command, message, session, or deny. The command's stdout, stderr,
 and exit status are returned to Grok.
 
+### Reviewer display
+
+The interactive reviewer uses terminal hierarchy and restrained color to keep the command, risk
+hints, and approval scope visually distinct. Color defaults to `auto`: ANSI styling is enabled only
+on a TTY, is disabled for `TERM=dumb`, and respects `NO_COLOR`. Pipes, redirected output, and JSON
+remain free of ANSI escape sequences unless color is explicitly set to `always`.
+
+```sh
+rootbroker-admin watch --theme high-contrast --density comfortable
+rootbroker-admin watch --color never --density compact
+```
+
+Available themes are `default`, `mono`, and `high-contrast`; density is `comfortable` or `compact`.
+`--show-hash=false` and `--wrap-command=false` control the two optional presentation details.
+The command, risk hints, session, turn, cwd, timeout, and approval-scope explanations cannot be
+hidden by UI configuration.
+
+Optional defaults can be stored in `$XDG_CONFIG_HOME/rootbroker/admin.json`, or in
+`~/.config/rootbroker/admin.json` when `XDG_CONFIG_HOME` is unset:
+
+```json
+{
+  "color": "auto",
+  "theme": "default",
+  "density": "comfortable",
+  "showHash": true,
+  "wrapCommand": true
+}
+```
+
+The precedence is command-line flags, `ROOTBROKER_*` environment variables, `NO_COLOR`, the JSON
+file, then built-in defaults. The supported display variables are `ROOTBROKER_COLOR`,
+`ROOTBROKER_THEME`, `ROOTBROKER_DENSITY`, `ROOTBROKER_SHOW_HASH`, and
+`ROOTBROKER_WRAP_COMMAND`. `ROOTBROKER_ADMIN_CONFIG` or `--config PATH` selects a different file.
+If an agent can write the approver's complete home, keep security-sensitive visual preferences on
+the command line or in an agent-unwritable configuration path. UI settings never change approval
+semantics.
+
 Non-interactive reviewer commands are also available for a human-operated workflow:
 
 ```sh

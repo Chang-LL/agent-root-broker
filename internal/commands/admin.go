@@ -45,7 +45,7 @@ func Admin(args []string) int {
 		break
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprintln(os.Stdout, "Usage: rootbroker-admin [--json] pending|leases\n       rootbroker-admin approve REQUEST_ID [--scope command|message|session]\n       rootbroker-admin deny REQUEST_ID\n       rootbroker-admin revoke LEASE_ID\n       rootbroker-admin home-access status|grant|revoke\n       rootbroker-admin watch [--interval SECONDS]")
+		fmt.Fprintln(os.Stdout, "Usage: rootbroker-admin [--json] pending|leases\n       rootbroker-admin approve REQUEST_ID [--scope command|message|session]\n       rootbroker-admin deny REQUEST_ID\n       rootbroker-admin revoke LEASE_ID\n       rootbroker-admin home-access status|grant|revoke\n       rootbroker-admin watch [OPTIONS]")
 		return 0
 	}
 	switch args[0] {
@@ -136,17 +136,17 @@ func Admin(args []string) int {
 		}
 		return responseExit(response.baseResponse, asJSON)
 	case "watch":
-		interval := time.Second
-		if len(args) == 3 && args[1] == "--interval" {
-			seconds, err := strconv.ParseFloat(args[2], 64)
-			if err != nil || seconds < 0.1 {
-				return adminUsageError(asJSON, "--interval must be at least 0.1")
-			}
-			interval = time.Duration(seconds * float64(time.Second))
-		} else if len(args) != 1 {
-			return adminUsageError(asJSON, "invalid watch arguments")
+		options, help, err := parseAdminWatchOptions(args[1:])
+		if help {
+			fmt.Fprintln(os.Stdout, adminWatchUsage())
+			return 0
 		}
-		return watch(socketPath, interval)
+		if err != nil {
+			return adminUsageError(asJSON, err.Error())
+		}
+		isTTY, width := adminTerminal(os.Stdout)
+		renderer := newAdminRenderer(options.UI, shouldUseANSI(options.UI.Color, isTTY, os.Getenv("TERM")), width)
+		return watch(socketPath, options.Interval, renderer)
 	default:
 		return adminUsageError(asJSON, "unknown command: "+args[0])
 	}
@@ -207,11 +207,10 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
-const approvalPrompt = "Approve [c]ommand, [m]essage, [s]ession; [d]eny; [l]ater; [q]uit? "
-
-func readApprovalChoice(reader *bufio.Reader, output io.Writer) (string, error) {
+func readApprovalChoice(reader *bufio.Reader, output io.Writer, renderer adminRenderer, turn int) (string, error) {
+	fullPrompt := true
 	for {
-		if _, err := fmt.Fprint(output, approvalPrompt); err != nil {
+		if _, err := fmt.Fprint(output, renderer.approvalPrompt(turn, fullPrompt)); err != nil {
 			return "", fmt.Errorf("write approval prompt: %w", err)
 		}
 		line, err := reader.ReadString('\n')
@@ -223,14 +222,15 @@ func readApprovalChoice(reader *bufio.Reader, output io.Writer) (string, error) 
 		case "c", "m", "s", "d", "l", "q":
 			return choice, nil
 		default:
-			if _, err := fmt.Fprintln(output, "Invalid choice. Enter c, m, s, d, l, or q."); err != nil {
+			if _, err := fmt.Fprintln(output, renderer.invalidChoice()); err != nil {
 				return "", fmt.Errorf("write invalid-choice message: %w", err)
 			}
+			fullPrompt = false
 		}
 	}
 }
 
-func watch(socketPath string, interval time.Duration) int {
+func watch(socketPath string, interval time.Duration, renderer adminRenderer) int {
 	fmt.Fprintln(os.Stdout, "Waiting for rootbroker requests. Ctrl+C quits.")
 	reader := bufio.NewReader(os.Stdin)
 	seen := make(map[string]bool)
@@ -251,9 +251,9 @@ func watch(socketPath string, interval time.Duration) int {
 			time.Sleep(interval)
 			continue
 		}
-		fmt.Fprintln(os.Stdout, "\n"+formatPending(*current))
+		fmt.Fprintln(os.Stdout, "\n"+renderer.pending(*current)+"\n")
 		for {
-			choice, err := readApprovalChoice(reader, os.Stdout)
+			choice, err := readApprovalChoice(reader, os.Stdout, renderer, current.Turn)
 			if err != nil {
 				return 1
 			}
@@ -262,14 +262,14 @@ func watch(socketPath string, interval time.Duration) int {
 				if code := adminMutation(socketPath, false, map[string]any{"op": "decide", "requestId": current.ID, "decision": "approved", "scope": scope}); code != 0 {
 					return code
 				}
-				fmt.Fprintf(os.Stdout, "Approved %s for %s scope.\n", current.ID, scope)
+				fmt.Fprintln(os.Stdout, renderer.approved(current.ID, scope))
 				break
 			}
 			if choice == "d" {
 				if code := adminMutation(socketPath, false, map[string]any{"op": "decide", "requestId": current.ID, "decision": "denied", "scope": "command"}); code != 0 {
 					return code
 				}
-				fmt.Fprintf(os.Stdout, "Denied %s.\n", current.ID)
+				fmt.Fprintln(os.Stdout, renderer.denied(current.ID))
 				break
 			}
 			if choice == "l" {

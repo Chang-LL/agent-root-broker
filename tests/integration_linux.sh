@@ -19,6 +19,8 @@ BIN="$TEST_DIR/rootbroker-bin"
 RUNTIME="$TEST_DIR/run"
 CONFIG="$TEST_DIR/config.json"
 OUTPUT="$TEST_DIR/agent-output.jsonl"
+UI_OUTPUT="$TEST_DIR/ui-agent-output.jsonl"
+WATCH_OUTPUT="$TEST_DIR/watch-output.txt"
 CURRENT_USER=$(id -un)
 CURRENT_GROUP=$(id -gn)
 SHELL_EXE=$(readlink -f /bin/sh)
@@ -77,5 +79,43 @@ grep -q '"approvalScope":"message"' "$OUTPUT"
 grep -q 'lease-ok' "$OUTPUT"
 grep -q '"code":"no_active_turn"' "$OUTPUT"
 ROOTBROKER_ADMIN_SOCKET="$RUNTIME/admin.sock" "$BIN" rootbroker-admin --json leases | grep -q '"leases":\[\]'
+
+ROOTBROKER_SOCKET="$RUNTIME/request.sock" /bin/sh -c '
+  bin=$1
+  printf "%s\n" "{\"hookEventName\":\"session_start\",\"sessionId\":\"ui-integration-session\"}" | "$bin" rootbroker-grok-hook
+  printf "%s\n" "{\"hookEventName\":\"user_prompt_submit\",\"sessionId\":\"ui-integration-session\"}" | "$bin" rootbroker-grok-hook
+  "$bin" rootbroker sudo --json -- /usr/bin/systemd-run --version
+' rootbroker-ui-integration "$BIN" >"$UI_OUTPUT" 2>&1 &
+AGENT_PID=$!
+
+REQUEST_ID=
+for _ in $(seq 1 100); do
+  PENDING=$(ROOTBROKER_ADMIN_SOCKET="$RUNTIME/admin.sock" "$BIN" rootbroker-admin --json pending)
+  REQUEST_ID=$(printf '%s\n' "$PENDING" | sed -n 's/.*"id":"\([0-9a-f]*\)".*/\1/p')
+  [ -n "$REQUEST_ID" ] && break
+  sleep 0.05
+done
+[ -n "$REQUEST_ID" ] || { cat "$TEST_DIR/daemon.log"; cat "$UI_OUTPUT"; exit 1; }
+
+printf '\nq\n' | ROOTBROKER_ADMIN_SOCKET="$RUNTIME/admin.sock" \
+  "$BIN" rootbroker-admin watch --color=never --interval 0.1 >"$WATCH_OUTPUT" 2>&1
+
+kill "$AGENT_PID" 2>/dev/null || true
+wait "$AGENT_PID" 2>/dev/null || true
+AGENT_PID=
+
+grep -q '^==> Root request  ' "$WATCH_OUTPUT"
+grep -q '^Command$' "$WATCH_OUTPUT"
+grep -q '^  /usr/bin/systemd-run --version$' "$WATCH_OUTPUT"
+grep -q '^Warning: system service management$' "$WATCH_OUTPUT"
+grep -q 'remaining requests in turn 1' "$WATCH_OUTPUT"
+grep -q 'remaining requests in this session' "$WATCH_OUTPUT"
+grep -q 'Choice: Invalid choice. Enter c, m, s, d, l, or q.' "$WATCH_OUTPUT"
+[ "$(grep -c '^Approve$' "$WATCH_OUTPUT")" -eq 1 ]
+ESCAPE=$(printf '\033')
+if grep -q "$ESCAPE" "$WATCH_OUTPUT"; then
+  echo "watch --color=never emitted ANSI escape sequences"
+  exit 1
+fi
 
 echo "PASS: Go Linux socket integration"
