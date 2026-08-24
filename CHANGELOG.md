@@ -5,6 +5,17 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Added
+
+- Added a TTY-aware, Homebrew-inspired interactive reviewer with `default`, `mono`, and
+  `high-contrast` themes, automatic `NO_COLOR` support, terminal-width command wrapping, and
+  presentation-only user configuration.
+
+### Changed
+
+- Explain command, message, and session approval scopes directly in the prompt, and use a short
+  `Choice:` retry after invalid input instead of redrawing the complete prompt.
+
 ## [0.1.0-alpha.6] - 2026-08-23
 
 ### Fixed

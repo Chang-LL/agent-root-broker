@@ -270,6 +270,41 @@ rootbroker sudo -- mount /dev/disk/by-uuid/EXAMPLE /mnt/data
 请求哈希。你可以选择批准单条命令、当前消息、整个会话，或者拒绝。命令的 stdout、stderr
 和退出状态会返回给 Grok。
 
+### 审批界面
+
+交互式审批器使用清晰的终端层级和克制的颜色，把命令、风险提示和授权范围区分开。颜色默认
+为 `auto`：只在 TTY 中启用 ANSI 样式；`TERM=dumb` 或 `NO_COLOR` 会关闭颜色。管道、重定向
+输出和 JSON 默认不包含 ANSI 控制码，除非显式把 color 设为 `always`。
+
+```sh
+rootbroker-admin watch --theme high-contrast --density comfortable
+rootbroker-admin watch --color never --density compact
+```
+
+主题可选 `default`、`mono` 和 `high-contrast`，密度可选 `comfortable` 或 `compact`。
+`--show-hash=false` 和 `--wrap-command=false` 控制两个可选展示细节。命令、风险提示、session、
+turn、cwd、timeout 和审批范围说明不能通过 UI 配置隐藏。
+
+可选的默认配置放在 `$XDG_CONFIG_HOME/rootbroker/admin.json`；未设置 `XDG_CONFIG_HOME` 时使用
+`~/.config/rootbroker/admin.json`：
+
+```json
+{
+  "color": "auto",
+  "theme": "default",
+  "density": "comfortable",
+  "showHash": true,
+  "wrapCommand": true
+}
+```
+
+优先级依次为命令行参数、`ROOTBROKER_*` 环境变量、`NO_COLOR`、JSON 文件、内置默认值。
+可用的展示环境变量包括 `ROOTBROKER_COLOR`、`ROOTBROKER_THEME`、
+`ROOTBROKER_DENSITY`、`ROOTBROKER_SHOW_HASH` 和 `ROOTBROKER_WRAP_COMMAND`；
+`ROOTBROKER_ADMIN_CONFIG` 或 `--config PATH` 可选择其他文件。如果 agent 能写审批者的完整
+家目录，安全相关的视觉偏好应通过命令行设置，或存入 agent 无法写入的配置路径。UI 设置
+永远不会改变审批语义。
+
 人工操作也可以使用非交互式审批命令：
 
 ```sh
