@@ -5,6 +5,11 @@ project intends to use Semantic Versioning after the public alpha contract is de
 
 ## Unreleased
 
+### Fixed
+
+- Configure only Cloudsmith's binary APT source and verify the repository key's complete
+  fingerprint, avoiding `source/Sources` warnings when no Debian source packages are published.
+
 ## [0.1.0-alpha.7] - 2026-08-24
 
 ### Added

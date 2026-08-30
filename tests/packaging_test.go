@@ -323,7 +323,7 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 		}
 	}
 	for _, filename := range []string{
-		"CONTRIBUTING.md", "SUPPORT.md", "COMPATIBILITY.md", "UPGRADE.md", "UNINSTALL.md",
+		"setup-apt-repository.sh", "CONTRIBUTING.md", "SUPPORT.md", "COMPATIBILITY.md", "UPGRADE.md", "UNINSTALL.md",
 		"MIGRATION.md", "TROUBLESHOOTING.md", "THREAT_MODEL.md", "CHANGELOG.md",
 	} {
 		if !strings.Contains(release, filename) {
@@ -337,13 +337,28 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 }
 
 func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
+	ci := projectFile(t, ".github", "workflows", "ci.yml")
+	for _, wanted := range []string{
+		"apt-repository:",
+		"debian:12",
+		"ubuntu:24.04",
+		"./setup-apt-repository.sh --component alpha",
+		`! grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
+		"apt-cache policy agent-root-broker",
+	} {
+		if !strings.Contains(ci, wanted) {
+			t.Fatalf("CI is missing APT repository verification behavior %q", wanted)
+		}
+	}
+
 	release := projectFile(t, ".github", "workflows", "release.yml")
 	for _, wanted := range []string{
 		"verify-cloudsmith-apt:",
 		"needs: publish-cloudsmith",
 		"debian:12",
 		"ubuntu:24.04",
-		"https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh",
+		"./setup-apt-repository.sh --component",
+		`! grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
 		"previous_package_version",
 		"--only-upgrade agent-root-broker",
 		`test "$installed_version" = "$expected_version"`,
@@ -358,8 +373,9 @@ func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
 		document := projectFile(t, filename)
 		for _, wanted := range []string{
 			"https://broadcasts.cloudsmith.com/lc-software/agent-root-broker",
-			"https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh",
-			"sudo env component=alpha bash",
+			"https://raw.githubusercontent.com/Chang-LL/agent-root-broker/main/setup-apt-repository.sh",
+			"sudo apt-get install -y ca-certificates curl gnupg",
+			"sudo sh /tmp/agent-root-broker-apt-setup.sh --component alpha",
 			"sudo apt-get install agent-root-broker",
 			"Cloudsmith",
 		} {
@@ -367,6 +383,20 @@ func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
 				t.Fatalf("%s is missing public APT guidance %q", filename, wanted)
 			}
 		}
+	}
+
+	setup := projectFile(t, "setup-apt-repository.sh")
+	for _, wanted := range []string{
+		"15AC793B1EA501CF36930F021C034B0267F8FDD9",
+		"signed-by=$keyring_path",
+		"apt-get update",
+	} {
+		if !strings.Contains(setup, wanted) {
+			t.Fatalf("APT repository setup is missing %q", wanted)
+		}
+	}
+	if strings.Contains(setup, "\ndeb-src ") {
+		t.Fatal("APT repository setup must not enable an unpublished source-package index")
 	}
 }
 
