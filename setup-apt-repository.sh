@@ -6,7 +6,7 @@ export PATH
 
 repository_url="https://dl.cloudsmith.io/public/lc-software/agent-root-broker/deb"
 key_url="https://dl.cloudsmith.io/public/lc-software/agent-root-broker/gpg.1C034B0267F8FDD9.key"
-key_fingerprint="15AC793B1EA501CF36930F021C034B0267F8FDD9"
+key_fingerprint="15AC793B1EA501CF36930F021C034B0267F8FDD9" # gitleaks:allow -- public OpenPGP fingerprint
 keyring_path="/usr/share/keyrings/lc-software-agent-root-broker-archive-keyring.gpg"
 source_path="/etc/apt/sources.list.d/lc-software-agent-root-broker.list"
 component="alpha"

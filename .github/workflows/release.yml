@@ -204,7 +204,10 @@ jobs:
           ./setup-apt-repository.sh --component "$RELEASE_COMPONENT"
           source_file=/etc/apt/sources.list.d/lc-software-agent-root-broker.list
           test "$(grep -c '^deb ' "$source_file")" -eq 1
-          ! grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)' "$source_file"
+          if grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)' "$source_file"; then
+            echo "binary-only repository setup unexpectedly enabled deb-src" >&2
+            exit 1
+          fi
       - name: Install or upgrade to the tagged package from APT
         run: |
           set -eu

@@ -337,13 +337,28 @@ func TestDocumentationShipsEnglishAndChinese(t *testing.T) {
 }
 
 func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
+	gitleaks := projectFile(t, ".gitleaks.toml")
+	for _, wanted := range []string{
+		"useDefault = true",
+		`id = "generic-api-key"`,
+		"15AC793B1EA501CF36930F021C034B0267F8FDD9",
+	} {
+		if !strings.Contains(gitleaks, wanted) {
+			t.Fatalf("gitleaks configuration is missing narrow public-key allowlist behavior %q", wanted)
+		}
+	}
+	if strings.Contains(gitleaks, "disabledRules") {
+		t.Fatal("gitleaks configuration must not disable the generic secret rule")
+	}
+
 	ci := projectFile(t, ".github", "workflows", "ci.yml")
 	for _, wanted := range []string{
 		"apt-repository:",
 		"debian:12",
 		"ubuntu:24.04",
 		"./setup-apt-repository.sh --component alpha",
-		`! grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
+		`grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
+		"binary-only repository setup unexpectedly enabled deb-src",
 		"apt-cache policy agent-root-broker",
 	} {
 		if !strings.Contains(ci, wanted) {
@@ -358,7 +373,8 @@ func TestCloudsmithAPTDistributionIsDocumentedAndVerified(t *testing.T) {
 		"debian:12",
 		"ubuntu:24.04",
 		"./setup-apt-repository.sh --component",
-		`! grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
+		`grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)'`,
+		"binary-only repository setup unexpectedly enabled deb-src",
 		"previous_package_version",
 		"--only-upgrade agent-root-broker",
 		`test "$installed_version" = "$expected_version"`,
