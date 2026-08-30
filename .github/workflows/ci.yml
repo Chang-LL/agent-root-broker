@@ -120,8 +120,35 @@ jobs:
       - name: Build, install, and remove Debian package
         run: sudo env "PATH=$PATH" ./tests/deb_package_linux.sh
 
+  apt-repository:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:12
+          - ubuntu:24.04
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install repository setup prerequisites
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
+      - name: Configure the binary-only signed repository
+        run: |
+          set -eu
+          ./setup-apt-repository.sh --component alpha
+          source_file=/etc/apt/sources.list.d/lc-software-agent-root-broker.list
+          test "$(grep -c '^deb ' "$source_file")" -eq 1
+          if grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)' "$source_file"; then
+            echo "binary-only repository setup unexpectedly enabled deb-src" >&2
+            exit 1
+          fi
+          test "$(apt-cache policy agent-root-broker | awk '/Candidate:/ {print $2}')" != "(none)"
+
   install-system:
-    needs: [compatibility, packages, quality, secrets, test]
+    needs: [apt-repository, compatibility, packages, quality, secrets, test]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

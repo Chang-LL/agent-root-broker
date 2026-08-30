@@ -53,7 +53,7 @@ jobs:
             mkdir -p "$stage/packaging/config" "$stage/packaging/systemd"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o "$stage/rootbroker" ./cmd/rootbroker
             cyclonedx-gomod bin -json -output "$stage/rootbroker.bom.cdx.json" -version "$VERSION" "$stage/rootbroker"
-            cp install.sh uninstall.sh migrate-private-prealpha.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
+            cp install.sh uninstall.sh migrate-private-prealpha.sh setup-apt-repository.sh LICENSE README.md README.zh-CN.md ROADMAP.md ROADMAP.zh-CN.md \
               SECURITY.md CONTRIBUTING.md SUPPORT.md COMPATIBILITY.md UPGRADE.md UNINSTALL.md \
               MIGRATION.md TROUBLESHOOTING.md THREAT_MODEL.md CHANGELOG.md "$stage/"
             cp -R profiles "$stage/"
@@ -191,6 +191,7 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install repository bootstrap prerequisites
         run: |
           apt-get update
@@ -200,10 +201,13 @@ jobs:
           RELEASE_COMPONENT: ${{ contains(github.ref_name, '-') && 'alpha' || 'main' }}
         run: |
           set -eu
-          curl -1sLf \
-            https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
-            -o /tmp/agent-root-broker-cloudsmith-setup.sh
-          env component="$RELEASE_COMPONENT" bash /tmp/agent-root-broker-cloudsmith-setup.sh
+          ./setup-apt-repository.sh --component "$RELEASE_COMPONENT"
+          source_file=/etc/apt/sources.list.d/lc-software-agent-root-broker.list
+          test "$(grep -c '^deb ' "$source_file")" -eq 1
+          if grep -Eq '^[[:space:]]*deb-src([[:space:]]|$)' "$source_file"; then
+            echo "binary-only repository setup unexpectedly enabled deb-src" >&2
+            exit 1
+          fi
       - name: Install or upgrade to the tagged package from APT
         run: |
           set -eu

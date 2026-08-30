@@ -105,21 +105,25 @@ packages.
 
 Alpha packages are published in the `alpha` component of the signed
 [Cloudsmith APT repository](https://broadcasts.cloudsmith.com/lc-software/agent-root-broker).
-Download Cloudsmith's generated repository bootstrap over HTTPS, inspect it locally, and only then
-run it as root:
+Download the project's repository setup script over HTTPS, inspect it locally, and only then run it
+as root:
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
 curl -1sLf \
-  https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
-  -o /tmp/agent-root-broker-cloudsmith-setup.sh
-less /tmp/agent-root-broker-cloudsmith-setup.sh
-sudo env component=alpha bash /tmp/agent-root-broker-cloudsmith-setup.sh
+  https://raw.githubusercontent.com/Chang-LL/agent-root-broker/main/setup-apt-repository.sh \
+  -o /tmp/agent-root-broker-apt-setup.sh
+less /tmp/agent-root-broker-apt-setup.sh
+sudo sh /tmp/agent-root-broker-apt-setup.sh --component alpha
 sudo apt-get install agent-root-broker
 ```
 
-The bootstrap installs Cloudsmith's repository signing key with APT `signed-by` isolation, writes
-the package source under `/etc/apt/sources.list.d`, and refreshes package metadata. Package
-installation deliberately does not create accounts or start a root service; configure it explicitly:
+The setup script verifies the complete fingerprint of Cloudsmith's repository signing key, installs
+it with APT `signed-by` isolation, writes only the binary package source under
+`/etc/apt/sources.list.d`, and refreshes package metadata. It deliberately omits `deb-src` because
+this repository does not currently publish Debian source packages. Package installation does not
+create accounts or start a root service; configure it explicitly:
 
 ```sh
 sudo rootbroker-setup \

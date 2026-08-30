@@ -95,21 +95,24 @@ allowlist 选择、以 root 执行的 shell 代码。Unix socket 仍是唯一已
 
 Alpha 软件包发布在带签名的
 [Cloudsmith APT 仓库](https://broadcasts.cloudsmith.com/lc-software/agent-root-broker)的
-`alpha` component 中。先通过 HTTPS 下载 Cloudsmith 生成的仓库配置脚本，在本地审阅后再以
-root 身份运行：
+`alpha` component 中。先通过 HTTPS 下载项目提供的仓库配置脚本，在本地审阅后再以 root
+身份运行：
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
 curl -1sLf \
-  https://dl.cloudsmith.io/public/lc-software/agent-root-broker/setup.deb.sh \
-  -o /tmp/agent-root-broker-cloudsmith-setup.sh
-less /tmp/agent-root-broker-cloudsmith-setup.sh
-sudo env component=alpha bash /tmp/agent-root-broker-cloudsmith-setup.sh
+  https://raw.githubusercontent.com/Chang-LL/agent-root-broker/main/setup-apt-repository.sh \
+  -o /tmp/agent-root-broker-apt-setup.sh
+less /tmp/agent-root-broker-apt-setup.sh
+sudo sh /tmp/agent-root-broker-apt-setup.sh --component alpha
 sudo apt-get install agent-root-broker
 ```
 
-该脚本通过 APT `signed-by` 隔离方式安装 Cloudsmith 仓库签名 key，在
-`/etc/apt/sources.list.d` 下写入软件源，并刷新软件包元数据。软件包安装本身不会创建账户，
-也不会启动 root 服务；随后仍需显式配置：
+该脚本会核对 Cloudsmith 仓库签名 key 的完整指纹，通过 APT `signed-by` 隔离方式安装 key，
+在 `/etc/apt/sources.list.d` 下只写入二进制软件源，并刷新软件包元数据。由于仓库目前没有
+发布 Debian source package，脚本会有意省略 `deb-src`，避免 `apt update` 请求不存在的
+`source/Sources` 索引。软件包安装本身不会创建账户，也不会启动 root 服务；随后仍需显式配置：
 
 ```sh
 sudo rootbroker-setup \

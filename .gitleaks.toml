@@ -1,0 +1,14 @@
+title = "Agent Root Broker gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Cloudsmith public OpenPGP repository signing-key fingerprint"
+regexTarget = "secret"
+regexes = [
+  '''^15AC793B1EA501CF36930F021C034B0267F8FDD9$''',
+]
